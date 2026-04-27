@@ -1,4 +1,9 @@
-       body { margin: 0; background: #050505; overflow: hidden; font-family: 'Consolas', 'Courier New', monospace; color: #00ffea; user-select: none; touch-action: none; }
+#gameCanvas {
+    width: 100vw;
+    height: 100vh;
+    object-fit: contain;
+}
+body { margin: 0; background: #050505; overflow: hidden; font-family: 'Consolas', 'Courier New', monospace; color: #00ffea; user-select: none; touch-action: none; }
         
         /* CRT & TV EFFECTS */
         #tv-wrapper { width: 100vw; height: 100vh; overflow: hidden; position: relative; transition: all 0.3s ease; }
