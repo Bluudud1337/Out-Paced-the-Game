@@ -1,12 +1,15 @@
-    const canvas = document.getElementById('gameCanvas');
+const BASE_WIDTH = 1280;
+const BASE_HEIGHT = 720;
+const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const tvWrapper = document.getElementById('tv-wrapper');
-    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    canvas.width = BASE_WIDTH;
+    canvas.height = BASE_HEIGHT;
 
     let floorNum = 1, timeLeft = 90, totalExp = 0, isGameOver = false, inSafeRoom = false;
     let gateOpen = false;
     let platforms = [], hazards = [], lockers = [], decals = [], lasers = [];
-    let gateX = 8000, camX = 0, camY = 0, camShake = 0;
+    let gateX = 20000, camX = 0, camY = 0, camShake = 0;
     
     // Input Handling
     const keys = { left: false, right: false, jump: false, action: false };
@@ -112,7 +115,7 @@
         trigger() { 
             if(inSafeRoom || this.active) return; 
             this.active = true; 
-            this.warningTimer = 120; // 2 seconds of warning
+            this.warningTimer = 330; // 5.5 seconds of warning
             this.segs = []; 
         }
         update() {
@@ -290,7 +293,7 @@
             let platW = 600;
             
             if (type < 0.3) { // Normal Jump Gap
-                curX += 200 + Math.random()*250;
+                curX += 200 + Math.random()*400;
                 platW = 600;
                 platforms.push({x: curX, y: y, w: platW, h: 600});
             } 
@@ -351,7 +354,7 @@
         // Powerdown Environmental Effects
         if (pd.active) {
             ctx.fillStyle = '#1e0033'; // Purple background during Powerdown
-            camShake = 6;              // Constant screen shake
+            camShake = 10;              // Constant screen shake
         } else {
             ctx.fillStyle = '#050508';
         }
@@ -392,7 +395,16 @@
         document.getElementById('exp-display').innerText = "SYSTEM_POINTS: " + totalExp;
         requestAnimationFrame(loop);
     }
+let scale = 1;
 
+function resizeGame() {
+    const scaleX = window.innerWidth / BASE_WIDTH;
+    const scaleY = window.innerHeight / BASE_HEIGHT;
+    scale = Math.min(scaleX, scaleY);
+}
+
+window.addEventListener('resize', resizeGame);
+resizeGame();
     setInterval(() => { if(!isGameOver && !inSafeRoom) { timeLeft -= (activeMods.has('vampire') ? 2 : 1); document.getElementById('timer').innerText = `0:${timeLeft < 10 ? '0' : ''}${timeLeft}`; if (timeLeft <= 0) die("TIME_EXPIRED"); } }, 1000);
     setInterval(() => { if(!isGameOver && !inSafeRoom && Math.random() < 0.3) pd.trigger(); }, 6000);
     
