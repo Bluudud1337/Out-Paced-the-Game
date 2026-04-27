@@ -1,1 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Out_Paced v1.5</title>
+ <link rel="stylesheet" href="style.css">
+</head>
+<body>
 
+<div id="tv-wrapper">
+    <div class="crt-overlay" id="crt"></div>
+    <div id="ui">
+        <div id="top-bar">
+            <div>
+                <div id="timer">01:30</div>
+                <div id="exp-display">SYSTEM_POINTS: 0</div>
+            </div>
+            <button id="settings-btn" onclick="toggleSettings()">[ SETTINGS ]</button>
+            <div id="floor-tag">//SECTOR_01</div>
+        </div>
+        
+        <div id="dialogue-box" class="modal" style="border-color: #00ffea; bottom: 100px; top: auto;">
+            <h2 style="color: #00ffea; margin: 0;">HEARTY.SYS</h2>
+            <p style="color: #ccc;">//MODIFICATION_ACCESS?_Y/N</p>
+            <button onclick="openShop()">[ YES ]</button>
+            <button onclick="document.getElementById('dialogue-box').style.display='none'" style="border-color: #555; color: #555;">[ NO ]</button>
+        </div>
+
+        <div id="shop-menu" class="modal" style="width: 700px;">
+            <h1 style="color: #ff4d4d;">MOD_TERMINAL</h1>
+            <div id="mod-container"></div><br>
+            <button onclick="rerollMods()" style="color:#fbff00; border-color:#fbff00;">[ REROLL (FREE) ]</button>
+            <button onclick="document.getElementById('shop-menu').style.display='none'" style="color:#ff3e3e; border-color:#ff3e3e;">[ INSTALL ]</button>
+        </div>
+
+        <div id="mobile-controls">
+            <div class="d-pad">
+                <div class="m-btn" id="btn-left">←</div>
+                <div class="m-btn" id="btn-right">→</div>
+            </div>
+            <div class="d-pad">
+                <div class="m-btn" id="btn-action" style="border-radius: 10px;">E</div>
+                <div class="m-btn" id="btn-jump">▲</div>
+            </div>
+        </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+</div>
+<script>
+<script src="game.js"></script>
+</script>
+</body>
+</html>
