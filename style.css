@@ -254,14 +254,14 @@ button:active {
 
 
 .m-btn {
-  width: 70px;
-  height: 70px;
+  width: 120px;
+  height: 120px;
   background: rgba(0, 255, 234, 0.08);
   border: 2px solid rgba(0, 255, 234, 0.2);
   border-radius: 50%;
   pointer-events: all;
   color: rgba(0, 255, 234, 0.4);
-  font-size: 24px;
+  font-size: 35px;
   font-weight: bold;
   display: flex;
   justify-content: center;
