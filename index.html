@@ -1,58 +1,60 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OutPaced V6</title>
-    <link rel="icon" type="image/png" href="https://out-paced.vercel.app/Logo.png">
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>OutPaced V6</title>
+    <link rel="icon" type="image/png" href="https://out-paced.vercel.app/Logo.png">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <div id="tv-wrapper">
-    <div class="crt-overlay" id="crt"></div>
-    <div id="ui">
-        <div id="top-bar">
-            <div>
-                <div id="timer">01:30</div>
-                <div id="exp-display">SYSTEM_POINTS: 0</div>
-            </div>
-            <button id="settings-btn" onclick="toggleSettings()">[CRT FILTER]</button>
-            <div style="display:flex; gap:10px; align-items:center;">
-                <button id="pause-btn" onclick="togglePause()">[ PAUSE ]</button>
-                <div id="floor-tag">//SECTOR_01</div>
-            </div>
-        </div>
+    <div class="crt-overlay" id="crt"></div>
+    <div id="ui">
+        <div id="top-bar">
+            <div>
+                <div id="timer">01:30</div>
+                <div id="exp-display">SYSTEM_POINTS: 0</div>
+            </div>
+            <button id="settings-btn" onclick="toggleSettings()">[CRT FILTER]</button>
+            <div style="display:flex; gap:10px; align-items:center;">
+                <button id="pause-btn" onclick="togglePause()">[ PAUSE ]</button>
+                <div id="floor-tag">//SECTOR_01</div>
+            </div>
+        </div>
 
-        <div id="dialogue-box" class="modal" style="border-color: #ff4d4d; bottom: 100px; top: auto; width: 500px;">
-            <h2 style="color: #ff4d4d; margin: 0; letter-spacing: 3px;">HEARTY.</h2>
-            <p id="hearty-text" style="color: #ccc; font-size: 14px; min-height: 20px;">//MODIFICATION_ACCESS?_Y/N</p>
-            <div id="chat-options" style="margin-top: 10px;">
-                <button onclick="openShop()" style="border-color: #00ffea; color: #00ffea; margin: 4px;">[ SHOW_MODS ]</button>
-                <button onclick="heartyChat('talk')" style="border-color: #fbff00; color: #fbff00; margin: 4px;">[ TALK ]</button>
-                <button onclick="document.getElementById('dialogue-box').style.display='none'" style="border-color: #555; color: #555; margin: 4px;">[ LEAVE ]</button>
-            </div>
-        </div>
 
-        <div id="shop-menu" class="modal" style="width: 700px;">
-            <h1 style="color: #ff4d4d;">Modifiers</h1>
-            <div id="mod-container"></div><br>
-            <button onclick="rerollMods()" style="color:#fbff00; border-color:#fbff00;">REROLL</button>
-            <button onclick="document.getElementById('shop-menu').style.display='none'" style="color:#ff3e3e; border-color:#ff3e3e;">[ INSTALL ]</button>
-        </div>
+        <div id="dialogue-box" class="modal" style="border-color: #ff4d4d; bottom: 100px; top: auto; width: 500px;">
+            <h2 style="color: #ff4d4d; margin: 0; letter-spacing: 3px;">HEARTY.</h2>
+            <p id="hearty-text" style="color: #ccc; font-size: 14px; min-height: 20px;">//MODIFICATION_ACCESS?_Y/N</p>
+            <div id="chat-options" style="margin-top: 10px;">
+                <button onclick="openShop()" style="border-color: #00ffea; color: #00ffea; margin: 4px;">[ SHOW_MODS ]</button>
+                <button onclick="heartyChat('talk')" style="border-color: #fbff00; color: #fbff00; margin: 4px;">[ TALK ]</button>
+                <button onclick="document.getElementById('dialogue-box').style.display='none'" style="border-color: #555; color: #555; margin: 4px;">[ LEAVE ]</button>
+            </div>
+        </div>
 
-        <div id="mobile-controls">
-            <div class="d-pad">
-                <div class="m-btn" id="btn-left">&larr;</div>
-                <div class="m-btn" id="btn-right">&rarr;</div>
-            </div>
-            <div class="d-pad">
-                <div class="m-btn" id="btn-action" style="border-radius: 10px;">E</div>
-                <div class="m-btn" id="btn-jump">&Delta;</div>
-            </div>
-        </div>
-    </div>
-    <canvas id="gameCanvas"></canvas>
+
+        <div id="shop-menu" class="modal" style="width: 700px;">
+            <h1 style="color: #ff4d4d;">Modifiers</h1>
+            <div id="mod-container"></div><br>
+            <button onclick="rerollMods()" style="color:#fbff00; border-color:#fbff00;">REROLL</button>
+            <button onclick="document.getElementById('shop-menu').style.display='none'" style="color:#ff3e3e; border-color:#ff3e3e;">[ INSTALL ]</button>
+        </div>
+
+
+        <div id="mobile-controls">
+            <div class="d-pad">
+                <div class="m-btn" id="btn-left">&larr;</div>
+                <div class="m-btn" id="btn-right">&rarr;</div>
+            </div>
+            <div class="d-pad">
+                <div class="m-btn" id="btn-action" style="border-radius: 10px;">E</div>
+                <div class="m-btn" id="btn-jump">&Delta;</div>
+            </div>
+        </div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
 </div>
 <script type="module" src="game.js"></script>
 </body>
