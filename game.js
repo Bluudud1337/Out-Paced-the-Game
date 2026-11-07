@@ -755,7 +755,13 @@ function generateFloor() {
             rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'lab', floorY: roomFloorY, label: 'LAB_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         }
 
-        ceilings.push({ x: curX, y: 20, w: roomW, h: 20 });
+        // Give each room its own vertical bounds. When stairs descend, the
+        // ceiling and walls descend with the floor instead of staying at y=0.
+        const roomTopY = Math.max(20, roomFloorY - (canvas.height - 150));
+        const generatedRoom = rooms[rooms.length - 1];
+        generatedRoom.y = roomTopY;
+        generatedRoom.h = roomFloorY - roomTopY + 150;
+        ceilings.push({ x: curX, y: roomTopY, w: roomW, h: 20 });
 
         // Lockers ON platforms
         let roomFloorPlats = platforms.filter(pl => pl.x >= curX && pl.x < curX + roomW && !pl.isSlope && pl.h >= 20 && pl.w >= 100);
@@ -785,8 +791,8 @@ function generateFloor() {
         const doorwayHeight = 190;
         const doorwayTop = Math.max(40, roomFloorY - doorwayHeight);
         platforms.push(
-            { x: curX, y: 20, w: wallThickness, h: doorwayTop - 20 },
-            { x: curX + roomW - wallThickness, y: 20, w: wallThickness, h: doorwayTop - 20 }
+            { x: curX, y: roomTopY, w: wallThickness, h: Math.max(0, doorwayTop - roomTopY) },
+            { x: curX + roomW - wallThickness, y: roomTopY, w: wallThickness, h: Math.max(0, doorwayTop - roomTopY) }
         );
 
         // Vents - only if DUCTWORK mod is active
