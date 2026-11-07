@@ -555,15 +555,14 @@ function drawLabRoom(room, cx, cy) {
     const doorW = 86, doorH = 150, doorY = floorY - doorH;
     function drawDoor(edgeX) {
         const dx = edgeX - cx, dy = doorY - cy;
-        ctx.fillStyle = '#090d12'; ctx.fillRect(dx, dy, doorW, doorH);
+        // Open doorway: frame and lintel only, no fake solid door panel.
         ctx.fillStyle = '#aeb7c1';
         ctx.fillRect(dx - 5, dy - 5, doorW + 10, 7);
         ctx.fillRect(dx - 5, dy, 7, doorH);
         ctx.fillRect(dx + doorW - 2, dy, 7, doorH);
-        ctx.fillStyle = '#596775'; ctx.fillRect(dx + 8, dy + 7, doorW - 16, doorH - 7);
-        ctx.strokeStyle = '#8794a1'; ctx.lineWidth = 2;
-        ctx.strokeRect(dx + 8, dy + 7, doorW - 16, doorH - 7);
-        ctx.fillStyle = '#d9dfe5'; ctx.fillRect(dx + doorW - 22, dy + doorH * 0.52, 5, 12);
+        ctx.fillStyle = '#8794a1';
+        ctx.fillRect(dx + 7, dy + 7, 3, doorH - 7);
+        ctx.fillRect(dx + doorW - 10, dy + 7, 3, doorH - 7);
         ctx.fillStyle = accent; ctx.fillRect(dx - 5, floorY - cy - 3, doorW + 10, 4);
     }
     if (room.hasDoorLeft) drawDoor(room.x + wall);
