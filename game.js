@@ -745,23 +745,62 @@ function drawLabPlatform(pl, cx, cy) { let sx = pl.x - cx, sy = pl.y - cy; ctx.f
 function drawLabSlope(pl, cx, cy) { let sx = pl.x - cx, sy1 = pl.y1 - cy, sy2 = pl.y2 - cy; ctx.beginPath(); ctx.moveTo(sx, sy1); ctx.lineTo(sx + pl.w, sy2); ctx.lineTo(sx + pl.w, sy2 + 600); ctx.lineTo(sx, sy1 + 600); ctx.closePath(); ctx.fillStyle = '#0a0f14'; ctx.fill(); ctx.strokeStyle = '#00ffea'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(sx, sy1); ctx.lineTo(sx + pl.w, sy2); ctx.stroke(); ctx.fillStyle = 'rgba(0, 255, 234, 0.15)'; let midX = sx + pl.w / 2, midY = (sy1 + sy2) / 2 + 20; let angle = Math.atan2(sy2 - sy1, pl.w); ctx.save(); ctx.translate(midX, midY); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(20, 0); ctx.lineTo(-10, -8); ctx.lineTo(-10, 8); ctx.closePath(); ctx.fill(); ctx.restore(); }
 function drawLabHazard(h, cx, cy) { let sx = h.x - cx, sy = h.y - cy; if (h.type === 'lava') { let pulse = Math.sin(frameCount * 0.05) * 0.2 + 0.8; ctx.fillStyle = `rgba(0, 255, 100, ${0.15 * pulse})`; ctx.fillRect(sx, sy, h.w, h.h); ctx.fillStyle = `rgba(0, 255, 100, ${0.4 * pulse})`; for (let bx = 0; bx < h.w; bx += 30) { let bubbleY = Math.sin(frameCount * 0.08 + bx * 0.1) * 5; ctx.beginPath(); ctx.arc(sx + bx + 15, sy + bubbleY, 4 + Math.sin(frameCount * 0.1 + bx) * 2, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#ff4d4d'; for (let sx2 = 0; sx2 < h.w; sx2 += 20) ctx.fillRect(sx + sx2, sy - 4, 10, 4); } else { ctx.fillStyle = '#300'; ctx.fillRect(sx, sy, h.w, h.h); } }
 function drawLabLocker(l, cx, cy) {
-    let sx = l.x - cx, sy = l.y - cy;
-    let openAmt = l.openAnim || 0;
-    // Locker body
-    ctx.fillStyle = '#0c1018'; ctx.fillRect(sx, sy, l.w, l.h);
-    // Inner border
-    ctx.strokeStyle = 'rgba(0, 255, 234, 0.3)'; ctx.lineWidth = 2; ctx.strokeRect(sx + 2, sy + 2, l.w - 4, l.h - 4);
-    // Door slides open
-    let doorW = l.w * (1 - openAmt * 0.7);
-    ctx.fillStyle = '#0e1420'; ctx.fillRect(sx, sy, doorW, l.h);
-    ctx.strokeStyle = 'rgba(0, 255, 234, 0.3)'; ctx.lineWidth = 2; ctx.strokeRect(sx, sy, l.w, l.h);
-    // Handle
-    ctx.fillStyle = 'rgba(0, 255, 234, 0.5)'; ctx.fillRect(sx + doorW - 14, sy + l.h / 2 - 8, 8, 16);
-    // LED - green when player inside
-    let isPlayerInside = p.hiding && lockers.some(lo => lo === l && p.x + p.w > lo.x && p.x < lo.x + lo.w);
-    ctx.fillStyle = isPlayerInside ? '#0f0' : (Math.sin(frameCount * 0.05) > 0 ? '#0a0' : '#040'); ctx.fillRect(sx + 6, sy + 4, 4, 4);
-    // Interior visible when open
-    if (openAmt > 0.3) { ctx.fillStyle = 'rgba(0, 10, 20, 0.8)'; ctx.fillRect(sx + doorW, sy + 4, l.w - doorW - 4, l.h - 8); }
+    const sx=l.x-cx, sy=l.y-cy, w=l.w, h=l.h;
+    const openAmt=l.openAnim||0;
+    const doorW=w*(1-openAmt*0.72);
+
+    // Heavy, battered steel locker with a recessed frame.
+    ctx.save();
+    ctx.fillStyle='#080c10'; ctx.fillRect(sx-4,sy-4,w+8,h+8);
+    ctx.fillStyle='#252c31'; ctx.fillRect(sx,sy,w,h);
+    ctx.fillStyle='#11171b'; ctx.fillRect(sx+5,sy+5,w-10,h-10);
+    ctx.strokeStyle='#657078'; ctx.lineWidth=3; ctx.strokeRect(sx+1.5,sy+1.5,w-3,h-3);
+    ctx.strokeStyle='rgba(160,174,181,0.28)'; ctx.lineWidth=1;
+    ctx.strokeRect(sx+7,sy+7,w-14,h-14);
+
+    // Top nameplate and tiny status lamp.
+    ctx.fillStyle='#424b50'; ctx.fillRect(sx+8,sy+8,w-16,13);
+    ctx.fillStyle='#0b1013'; ctx.fillRect(sx+11,sy+11,w-22,7);
+    ctx.fillStyle=(p.hiding&&p.x+p.w>l.x&&p.x<l.x+l.w)?'#b7d7a8':(Math.sin(frameCount*0.045)>0?'#9aab83':'#59634d');
+    ctx.fillRect(sx+w-13,sy+11,5,5);
+
+    // Door slides aside when occupied, revealing a dark interior.
+    ctx.fillStyle='#343d42'; ctx.fillRect(sx,sy,doorW,h);
+    ctx.fillStyle='#20272b'; ctx.fillRect(sx+4,sy+20,Math.max(0,doorW-8),h-25);
+    ctx.strokeStyle='#778187'; ctx.lineWidth=2; ctx.strokeRect(sx+2,sy+2,Math.max(1,doorW-4),h-4);
+
+    // Reinforced vertical ribs and ventilation slits.
+    ctx.fillStyle='#4b555b';
+    for(let rib=12;rib<doorW-5;rib+=Math.max(16,w*0.28)) {
+        ctx.fillRect(sx+rib,sy+25,4,h-38);
+    }
+    ctx.fillStyle='#090d10';
+    for(let vent=0;vent<4;vent++) {
+        ctx.fillRect(sx+w*0.22,sy+h*0.38+vent*7,w*0.34,3);
+    }
+
+    // Chunky latch and warning stripe along the lower edge.
+    const handleX=sx+Math.max(4,doorW-13);
+    ctx.fillStyle='#899398'; ctx.fillRect(handleX,sy+h*0.48,7,18);
+    ctx.fillStyle='#171c20'; ctx.fillRect(handleX+2,sy+h*0.48+3,3,12);
+    ctx.fillStyle='#b39b5e';
+    for(let stripe=0;stripe<4;stripe++) {
+        ctx.beginPath();
+        ctx.moveTo(sx+7+stripe*9,sy+h-10);
+        ctx.lineTo(sx+13+stripe*9,sy+h-10);
+        ctx.lineTo(sx+9+stripe*9,sy+h-4);
+        ctx.lineTo(sx+3+stripe*9,sy+h-4);
+        ctx.closePath(); ctx.fill();
+    }
+
+    // Dark inner cavity remains visible as the door opens.
+    if(openAmt>0.08) {
+        ctx.fillStyle='rgba(2,5,7,0.94)';
+        ctx.fillRect(sx+doorW,sy+5,w-doorW-5,h-10);
+        ctx.strokeStyle='rgba(130,145,152,0.35)'; ctx.lineWidth=2;
+        ctx.strokeRect(sx+doorW+2,sy+7,w-doorW-9,h-14);
+    }
+    ctx.restore();
 }
 function drawLabLaser(l, cx, cy) { let ssx = l.sx - cx, ssy = l.sy - cy; ctx.fillStyle = l.active ? '#1a0505' : '#0a1a0a'; ctx.fillRect(ssx, ssy, 24, 24); ctx.strokeStyle = l.active ? '#f00' : '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(ssx, ssy, 24, 24); ctx.fillStyle = l.active ? '#f00' : '#0f0'; ctx.fillRect(ssx + 6, ssy + 6, 12, 12); if (l.active) { let lsx = l.x - cx, lsy = l.y - cy; ctx.fillStyle = "rgba(255, 0, 0, 0.15)"; ctx.fillRect(lsx - 4, lsy, l.w + 8, l.h); ctx.fillStyle = "rgba(255, 0, 0, 0.8)"; ctx.fillRect(lsx, lsy, l.w, l.h); } }
 function drawLabDecal(d, cx, cy) { ctx.fillStyle = d.c; ctx.fillRect(d.x - camX * 0.5, d.y - camY * 0.5, d.w, d.h); }
