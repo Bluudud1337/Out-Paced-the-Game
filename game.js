@@ -1064,7 +1064,6 @@ function drawSafeRoom(cx, cy) {
         ctx.fillText('SECTOR ' + floorNum + '  →  ' + (floorNum + 1), canvas.width / 2, canvas.height - 48);
         ctx.textAlign = 'left';
     }
-    }
 }
 
 // --- ROOM GENERATION ---
