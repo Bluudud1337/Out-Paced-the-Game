@@ -984,16 +984,61 @@ function drawSafeRoom(cx, cy) {
     let gX = gateX + 1500, gY = baseY - 400, gH = gateOpen ? 0 : 400;
     if (!gateOpen) { ctx.fillStyle = '#0c1018'; ctx.fillRect(gX - cx, gY - cy, 100, gH); ctx.fillStyle = '#ff4d4d'; for (let sy = 0; sy < gH; sy += 40) ctx.fillRect(gX - cx, gY - cy + sy, 100, 4); ctx.strokeStyle = '#00ffea'; ctx.lineWidth = 3; ctx.strokeRect(gX - cx, gY - cy, 100, gH); }
     if (!gateOpen && p.x + p.w > gX) { p.x = gX - p.w; p.vx = 0; }
-    // Elevator overlay
+    // Physical sector elevator: shaft, cabin, closing doors, and moving floor indicators.
     if (inElevator) {
-        let progress = elevatorTimer / ELEVATOR_DURATION;
-        ctx.fillStyle = `rgba(0, 0, 0, ${progress * 0.8})`; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#00ffea'; ctx.font = 'bold 20px Consolas'; ctx.textAlign = 'center';
-        ctx.fillText('SECTOR TRANSIT', canvas.width / 2, canvas.height / 2 - 20);
-        ctx.font = '14px Consolas'; ctx.fillText(`SECTOR ${floorNum} >> SECTOR ${floorNum + 1}`, canvas.width / 2, canvas.height / 2 + 10);
-        ctx.fillStyle = 'rgba(0, 255, 234, 0.2)'; ctx.fillRect(canvas.width / 2 - 100, canvas.height / 2 + 30, 200, 8);
-        ctx.fillStyle = '#00ffea'; ctx.fillRect(canvas.width / 2 - 100, canvas.height / 2 + 30, 200 * progress, 8);
-        ctx.textAlign = 'left';
+        const progress = Math.min(1, elevatorTimer / ELEVATOR_DURATION);
+        const ease = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
+        const cx = canvas.width / 2, cy = canvas.height / 2;
+        const cabW = 430, cabH = 560, cabX = cx - cabW / 2, cabY = cy - cabH / 2;
+        const doorOpen = Math.max(0, 1 - Math.min(1, elevatorTimer / 42), Math.min(1, Math.max(0, (elevatorTimer - (ELEVATOR_DURATION - 42)) / 42)));
+        const travel = elevatorTimer > 42 && elevatorTimer < ELEVATOR_DURATION - 42;
+        const shaftOffset = travel ? (elevatorTimer * 13) % 110 : 0;
+
+        ctx.save();
+        // Shaft walls and passing floor lights make the elevator visibly move.
+        ctx.fillStyle = '#030609'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#171f27'; ctx.fillRect(cx - 270, 0, 540, canvas.height);
+        ctx.fillStyle = '#303b45'; ctx.fillRect(cx - 260, 0, 12, canvas.height); ctx.fillRect(cx + 248, 0, 12, canvas.height);
+        ctx.fillStyle = '#596672';
+        for (let i = -1; i < 9; i++) {
+            const yy = ((i * 110 + shaftOffset) % (canvas.height + 110)) - 55;
+            ctx.fillRect(cx - 248, yy, 496, 5);
+            ctx.fillStyle = '#00aeb8'; ctx.fillRect(cx - 248, yy + 8, 10, 18); ctx.fillRect(cx + 238, yy + 8, 10, 18);
+            ctx.fillStyle = '#596672';
+        }
+        // Cabin body.
+        ctx.fillStyle = '#101820'; ctx.fillRect(cabX, cabY, cabW, cabH);
+        ctx.fillStyle = '#26333d'; ctx.fillRect(cabX + 14, cabY + 14, cabW - 28, cabH - 28);
+        ctx.fillStyle = '#0a0f14'; ctx.fillRect(cabX + 28, cabY + 28, cabW - 56, cabH - 56);
+        // Ceiling lights and floor rails.
+        ctx.fillStyle = '#9aaab5'; ctx.fillRect(cabX + 36, cabY + 22, cabW - 72, 5);
+        ctx.fillStyle = '#00d4d8'; ctx.fillRect(cabX + 45, cabY + 31, cabW - 90, 3);
+        ctx.fillStyle = '#485761'; ctx.fillRect(cabX + 22, cabY + cabH - 35, cabW - 44, 12);
+        ctx.fillStyle = '#0b1117'; ctx.fillRect(cabX + 30, cabY + cabH - 23, cabW - 60, 8);
+        // Doors slide apart during arrival and together during travel.
+        const doorW = (cabW - 58) / 2, doorY = cabY + 48, doorH = cabH - 96;
+        const slide = travel ? 0 : doorOpen * doorW;
+        ctx.fillStyle = '#667580'; ctx.fillRect(cabX + 29 - slide, doorY, doorW, doorH);
+        ctx.fillRect(cabX + cabW - 29 + slide - doorW, doorY, doorW, doorH);
+        ctx.fillStyle = '#394650';
+        for (let y = doorY + 18; y < doorY + doorH - 10; y += 36) {
+            ctx.fillRect(cabX + 38 - slide, y, doorW - 18, 3);
+            ctx.fillRect(cabX + cabW - 38 + slide - doorW, y, doorW - 18, 3);
+        }
+        ctx.fillStyle = '#00d4d8'; ctx.fillRect(cx - 2, doorY, 4, doorH);
+        // Elevator control panel.
+        ctx.fillStyle = '#05090d'; ctx.fillRect(cabX + cabW - 58, cabY + 75, 34, 105);
+        ctx.strokeStyle = '#00d4d8'; ctx.strokeRect(cabX + cabW - 58, cabY + 75, 34, 105);
+        ctx.fillStyle = '#00d4d8'; ctx.font = 'bold 13px Consolas'; ctx.textAlign = 'center';
+        ctx.fillText(String(floorNum), cabX + cabW - 41, cabY + 98);
+        ctx.fillStyle = '#7f929e'; ctx.font = '10px Consolas'; ctx.fillText(travel ? 'MOVING' : (progress < 0.5 ? 'DEPART' : 'ARRIVE'), cx, cabY + cabH - 58);
+        // Motion arrows / floor readout.
+        ctx.fillStyle = '#00d4d8'; ctx.font = 'bold 18px Consolas';
+        ctx.fillText(travel ? '▼' : '▲', cabX + cabW - 41, cabY + 132);
+        ctx.font = 'bold 18px Consolas'; ctx.fillText('SECTOR TRANSIT', cx, cabY - 18);
+        ctx.font = '12px Consolas'; ctx.fillStyle = '#a9bac5';
+        ctx.fillText(`SECTOR ${floorNum}  →  ${floorNum + 1}`, cx, cabY + cabH + 22);
+        ctx.restore();
     }
 }
 
