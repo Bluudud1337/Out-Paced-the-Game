@@ -705,21 +705,19 @@ class Player {
         if (this.x > gateX && !inSafeRoom) { inSafeRoom = true; safeRoomDoorSlammed = false; safeRoomDoorTimer = 0; calculateRewards(); }
         if (inSafeRoom && !safeRoomDoorSlammed) { safeRoomDoorTimer++; if (safeRoomDoorTimer > 30) { safeRoomDoorSlammed = true; camShake = 25; spawnParticles(gateX + 100, canvas.height - 300, "#00ffea", 30, 10, 20); } }
         if (inElevator) {
-            // Player is physically inside the cabin while it travels. Freeze movement,
-            // keep them centered in the cabin, and transition only when the ride ends.
+            // The player stays at their real world position inside the cabin.
+            // Doors close, the camera follows the cabin, and the sector changes after the ride.
             this.vx = 0; this.vy = 0; this.speed = 0;
-            this.x = elevatorWorldX + 155;
-            this.y = elevatorWorldY - this.h;
-            elevatorTimer++; camShake = 1;
+            elevatorTimer++; camShake = 0;
             if (elevatorTimer >= ELEVATOR_DURATION) { inElevator = false; elevatorTimer = 0; nextFloor(); }
             return;
         }
-        // Enter the elevator by walking through its open doorway after calling it.
+        // Enter only after the runner has walked fully through the doorway.
         if (inSafeRoom && gateOpen && !inElevator &&
-            this.x + this.w > elevatorWorldX + 105 && this.x < elevatorWorldX + 350 &&
-            this.y + this.h >= elevatorWorldY - 12 && this.y + this.h <= elevatorWorldY + 40) {
-            inElevator = true; elevatorTimer = 0; this.x = elevatorWorldX + 155; this.y = elevatorWorldY - this.h;
-            this.vx = 0; this.vy = 0; this.hiding = false; inVentSystem = false;
+            this.x + this.w > elevatorWorldX + 70 && this.x < elevatorWorldX + 230 &&
+            this.y + this.h >= elevatorWorldY - 8 && this.y + this.h <= elevatorWorldY + 20) {
+            inElevator = true; elevatorTimer = 0;
+            this.hiding = false; inVentSystem = false;
         }
     }
     draw(cx, cy) {
@@ -1034,61 +1032,38 @@ function drawSafeRoom(cx, cy) {
     let gX = gateX + 1500, gY = baseY - 400, gH = gateOpen ? 0 : 400;
     if (!gateOpen) { ctx.fillStyle = '#0c1018'; ctx.fillRect(gX - cx, gY - cy, 100, gH); ctx.fillStyle = '#ff4d4d'; for (let sy = 0; sy < gH; sy += 40) ctx.fillRect(gX - cx, gY - cy + sy, 100, 4); ctx.strokeStyle = '#00ffea'; ctx.lineWidth = 3; ctx.strokeRect(gX - cx, gY - cy, 100, gH); }
     if (!gateOpen && p.x + p.w > gX) { p.x = gX - p.w; p.vx = 0; }
-    // Physical sector elevator: shaft, cabin, closing doors, and moving floor indicators.
+    // Elevator ride is rendered as an interior world view, not a fullscreen transit animation.
     if (inElevator) {
-        const progress = Math.min(1, elevatorTimer / ELEVATOR_DURATION);
-        const ease = progress < 0.5 ? progress * 2 : (1 - progress) * 2;
-        const cx = canvas.width / 2, cy = canvas.height / 2;
-        const cabW = 430, cabH = 560, cabX = cx - cabW / 2, cabY = cy - cabH / 2;
-        const doorOpen = Math.max(0, 1 - Math.min(1, elevatorTimer / 42), Math.min(1, Math.max(0, (elevatorTimer - (ELEVATOR_DURATION - 42)) / 42)));
-        const travel = elevatorTimer > 42 && elevatorTimer < ELEVATOR_DURATION - 42;
-        const shaftOffset = travel ? (elevatorTimer * 13) % 110 : 0;
-
-        ctx.save();
-        // Shaft walls and passing floor lights make the elevator visibly move.
+        const rideProgress = elevatorTimer / ELEVATOR_DURATION;
         ctx.fillStyle = '#030609'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#171f27'; ctx.fillRect(cx - 270, 0, 540, canvas.height);
-        ctx.fillStyle = '#303b45'; ctx.fillRect(cx - 260, 0, 12, canvas.height); ctx.fillRect(cx + 248, 0, 12, canvas.height);
-        ctx.fillStyle = '#596672';
-        for (let i = -1; i < 9; i++) {
-            const yy = ((i * 110 + shaftOffset) % (canvas.height + 110)) - 55;
-            ctx.fillRect(cx - 248, yy, 496, 5);
-            ctx.fillStyle = '#00aeb8'; ctx.fillRect(cx - 248, yy + 8, 10, 18); ctx.fillRect(cx + 238, yy + 8, 10, 18);
-            ctx.fillStyle = '#596672';
+        ctx.fillStyle = '#171f27'; ctx.fillRect(90, 0, canvas.width - 180, canvas.height);
+        ctx.fillStyle = '#303b45'; ctx.fillRect(105, 0, 12, canvas.height); ctx.fillRect(canvas.width - 117, 0, 12, canvas.height);
+        // Shaft lights move past the cabin windows while the player remains inside.
+        for (let i = 0; i < 9; i++) {
+            const yy = ((i * 110 + elevatorTimer * 7) % (canvas.height + 110)) - 55;
+            ctx.fillStyle = '#596672'; ctx.fillRect(120, yy, canvas.width - 240, 5);
+            ctx.fillStyle = '#00aeb8'; ctx.fillRect(128, yy + 8, 8, 18); ctx.fillRect(canvas.width - 136, yy + 8, 8, 18);
         }
-        // Cabin body.
-        ctx.fillStyle = '#101820'; ctx.fillRect(cabX, cabY, cabW, cabH);
-        ctx.fillStyle = '#26333d'; ctx.fillRect(cabX + 14, cabY + 14, cabW - 28, cabH - 28);
-        ctx.fillStyle = '#0a0f14'; ctx.fillRect(cabX + 28, cabY + 28, cabW - 56, cabH - 56);
-        // Ceiling lights and floor rails.
-        ctx.fillStyle = '#9aaab5'; ctx.fillRect(cabX + 36, cabY + 22, cabW - 72, 5);
-        ctx.fillStyle = '#00d4d8'; ctx.fillRect(cabX + 45, cabY + 31, cabW - 90, 3);
-        ctx.fillStyle = '#485761'; ctx.fillRect(cabX + 22, cabY + cabH - 35, cabW - 44, 12);
-        ctx.fillStyle = '#0b1117'; ctx.fillRect(cabX + 30, cabY + cabH - 23, cabW - 60, 8);
-        // Doors slide apart during arrival and together during travel.
-        const doorW = (cabW - 58) / 2, doorY = cabY + 48, doorH = cabH - 96;
-        const slide = travel ? 0 : doorOpen * doorW;
-        ctx.fillStyle = '#667580'; ctx.fillRect(cabX + 29 - slide, doorY, doorW, doorH);
-        ctx.fillRect(cabX + cabW - 29 + slide - doorW, doorY, doorW, doorH);
-        ctx.fillStyle = '#394650';
-        for (let y = doorY + 18; y < doorY + doorH - 10; y += 36) {
-            ctx.fillRect(cabX + 38 - slide, y, doorW - 18, 3);
-            ctx.fillRect(cabX + cabW - 38 + slide - doorW, y, doorW - 18, 3);
-        }
-        ctx.fillStyle = '#00d4d8'; ctx.fillRect(cx - 2, doorY, 4, doorH);
-        // Elevator control panel.
-        ctx.fillStyle = '#05090d'; ctx.fillRect(cabX + cabW - 58, cabY + 75, 34, 105);
-        ctx.strokeStyle = '#00d4d8'; ctx.strokeRect(cabX + cabW - 58, cabY + 75, 34, 105);
-        ctx.fillStyle = '#00d4d8'; ctx.font = 'bold 13px Consolas'; ctx.textAlign = 'center';
-        ctx.fillText(String(floorNum), cabX + cabW - 41, cabY + 98);
-        ctx.fillStyle = '#7f929e'; ctx.font = '10px Consolas'; ctx.fillText(travel ? 'MOVING' : (progress < 0.5 ? 'DEPART' : 'ARRIVE'), cx, cabY + cabH - 58);
-        // Motion arrows / floor readout.
-        ctx.fillStyle = '#00d4d8'; ctx.font = 'bold 18px Consolas';
-        ctx.fillText(travel ? '▼' : '▲', cabX + cabW - 41, cabY + 132);
-        ctx.font = 'bold 18px Consolas'; ctx.fillText('SECTOR TRANSIT', cx, cabY - 18);
-        ctx.font = '12px Consolas'; ctx.fillStyle = '#a9bac5';
-        ctx.fillText(`SECTOR ${floorNum}  →  ${floorNum + 1}`, cx, cabY + cabH + 22);
-        ctx.restore();
+        // Cabin interior framing. The runner is drawn afterward, inside this space.
+        ctx.fillStyle = '#101820'; ctx.fillRect(170, 42, canvas.width - 340, canvas.height - 84);
+        ctx.fillStyle = '#26333d'; ctx.fillRect(184, 56, canvas.width - 368, canvas.height - 112);
+        ctx.fillStyle = '#0a0f14'; ctx.fillRect(198, 70, canvas.width - 396, canvas.height - 140);
+        ctx.fillStyle = '#9aaab5'; ctx.fillRect(210, 82, canvas.width - 420, 5);
+        ctx.fillStyle = '#00d4d8'; ctx.fillRect(220, 92, canvas.width - 440, 3);
+        ctx.fillStyle = '#485761'; ctx.fillRect(190, canvas.height - 105, canvas.width - 380, 18);
+        // Closed doors are visible at the sides of the cabin entrance.
+        ctx.fillStyle = '#667580'; ctx.fillRect(170, 110, 28, canvas.height - 220);
+        ctx.fillRect(canvas.width - 198, 110, 28, canvas.height - 220);
+        ctx.fillStyle = '#00d4d8'; ctx.fillRect(canvas.width / 2 - 2, 110, 4, canvas.height - 220);
+        ctx.fillStyle = '#05090d'; ctx.fillRect(canvas.width - 270, 130, 55, 110);
+        ctx.strokeStyle = '#00d4d8'; ctx.strokeRect(canvas.width - 270, 130, 55, 110);
+        ctx.fillStyle = '#00d4d8'; ctx.font = 'bold 14px Consolas'; ctx.textAlign = 'center';
+        ctx.fillText(String(floorNum), canvas.width - 242, 155);
+        ctx.fillStyle = '#a9bac5'; ctx.font = '12px Consolas';
+        ctx.fillText(rideProgress < 0.15 ? 'DOORS LOCKED' : 'ELEVATOR MOVING', canvas.width / 2, canvas.height - 70);
+        ctx.fillText('SECTOR ' + floorNum + '  →  ' + (floorNum + 1), canvas.width / 2, canvas.height - 48);
+        ctx.textAlign = 'left';
+    }
     }
 }
 
@@ -1333,7 +1308,13 @@ function loop() {
     let gridOffX = camX * 0.3 % 80, gridOffY = camY * 0.3 % 80;
     for (let gx = -gridOffX; gx < canvas.width; gx += 80) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, canvas.height); ctx.stroke(); }
     for (let gy = -gridOffY; gy < canvas.height; gy += 80) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(canvas.width, gy); ctx.stroke(); }
-    camX += (p.x - canvas.width / 3 - camX) * 0.1; camY += ((p.y - canvas.height / 1.5) - camY) * 0.1;
+    if (inElevator) {
+        camX = elevatorWorldX - canvas.width / 2 + 155;
+        camY = elevatorWorldY - canvas.height / 2;
+    } else {
+        camX += (p.x - canvas.width / 3 - camX) * 0.1;
+        camY += ((p.y - canvas.height / 1.5) - camY) * 0.1;
+    }
     ctx.save();
     if (camShake > 0) { ctx.translate((Math.random() - 0.5) * camShake, (Math.random() - 0.5) * camShake); if (!pd.active) camShake *= 0.85; }
 
