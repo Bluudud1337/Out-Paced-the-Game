@@ -114,6 +114,7 @@ const allMods = [
     { id: 'sote', name: 'SOTE', desc: 'Something to leap for.', exp: 550, icon: 'STAR' },
     { id: 'vents', name: 'DUCTWORK', desc: 'Vent system access', exp: 350, icon: 'DUCT' },
     { id: 'fastpd', name: '', desc: 'Powerdown is 2x faster.', exp: 800, icon: 'FAST' },
+    { id: 'hallwayRenovation', name: 'HALLWAY RENOVATION', desc: 'A massive entity called BULL hunts through corridors. Hide beneath overhead platforms.', exp: 900, icon: 'BULL' },
     { id: 'vine', name: 'OVERGROWTH', desc: 'Ground vines latch on. Spam jump to break free.', exp: 650, icon: 'VINE' },
 ];
 let activeMods = new Set();
@@ -375,6 +376,70 @@ class Bynd {
     }
 }
 
+class Bull {
+    constructor() { this.active=false; this.x=0; this.speed=0; this.spawnTimer=900; this.lastSpawn=0; this.roar=0; }
+    spawn() {
+        if(this.active||inSafeRoom||!activeMods.has('hallwayRenovation')) return;
+        this.active=true; this.x=Math.max(0,p.x-1500); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=100;
+    }
+    update() {
+        if(!activeMods.has('hallwayRenovation')||inSafeRoom) { this.active=false; return; }
+        if(!this.active) {
+            this.spawnTimer--;
+            if(this.spawnTimer<=0) { this.spawnTimer=900+Math.random()*900; this.spawn(); }
+            return;
+        }
+        this.x+=this.speed; this.roar=Math.max(0,this.roar-1);
+        // Bull crushes lockers and smaller corridor fixtures as it passes.
+        for(let i=lockers.length-1;i>=0;i--) if(lockers[i].x+lockers[i].w>this.x-100&&lockers[i].x<this.x+this.width()) {
+            spawnParticles(lockers[i].x+lockers[i].w/2,lockers[i].y,'#c7a16a',8,5,20); lockers.splice(i,1);
+        }
+        for(let i=vents.length-1;i>=0;i--) if(vents[i].x+vents[i].w>this.x-80&&vents[i].x<this.x+this.width()) vents.splice(i,1);
+        for(let i=decals.length-1;i>=0;i--) if(decals[i].x+decals[i].w>this.x-80&&decals[i].x<this.x+this.width()) decals.splice(i,1);
+        // The ground is indestructible, but overhead platforms can be battered away.
+        for(let i=platforms.length-1;i>=0;i--) {
+            const pl=platforms[i];
+            if(pl.y<canvas.height-200 && pl.x+pl.w>this.x && pl.x<this.x+this.width() && pl.y>100) {
+                if(Math.random()<0.08) { spawnParticles(pl.x+pl.w/2,pl.y,'#9b7852',6,4,18); platforms.splice(i,1); }
+            }
+        }
+        if(!isDodging && Math.abs(this.x+this.width()*0.55-(p.x+p.w/2))<this.width()*0.48 && !this.isPlayerSheltered()) {
+            if(activeMods.has('dodge')&&tryDodge()) {} else die('BULL_OVERRUN');
+        }
+        if(this.x>p.x+canvas.width+1200) this.active=false;
+    }
+    width() { return 900; }
+    isPlayerSheltered() {
+        const playerCenter=p.x+p.w/2, playerBottom=p.y+p.h;
+        return platforms.some(pl=>pl.w>90&&pl.x<=playerCenter&&pl.x+pl.w>=playerCenter&&pl.y+pl.h<=p.y+8&&pl.y+pl.h>p.y-180&&playerBottom<=pl.y+pl.h+220);
+    }
+    draw(cx,cy) {
+        if(!this.active) return;
+        const x=this.x-cx, floor=canvas.height-150-cy, h=canvas.height-220;
+        ctx.save(); ctx.translate(x,floor);
+        const pulse=Math.sin(frameCount*0.12)*8;
+        // Long, segmented sandworm body, filling nearly the entire corridor.
+        for(let i=8;i>=0;i--) {
+            const bx=-i*105, by=-h*0.52+Math.sin(frameCount*0.08-i*0.7)*24;
+            const radius=105-i*3;
+            ctx.fillStyle=i%2?'#6b4930':'#8b6542'; ctx.strokeStyle='#34251d'; ctx.lineWidth=7;
+            ctx.beginPath(); ctx.ellipse(bx,by,radius*1.2,h*0.47,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.fillStyle='rgba(210,170,112,0.25)'; ctx.beginPath(); ctx.ellipse(bx-15,by-h*0.18,radius*0.65,h*0.08,0,0,Math.PI*2); ctx.fill();
+        }
+        // Broad armored head and mandibles.
+        ctx.fillStyle='#a27a50'; ctx.strokeStyle='#302117'; ctx.lineWidth=9;
+        ctx.beginPath(); ctx.ellipse(0,-h*0.52,155,h*0.48,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#21160f'; ctx.beginPath(); ctx.ellipse(55,-h*0.48,80,h*0.22,0,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle='#e6b56c'; for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(25+i*20,-h*0.38);ctx.lineTo(45+i*20,-h*0.22);ctx.lineTo(60+i*20,-h*0.38);ctx.fill();}
+        ctx.fillStyle='#f4d18a'; ctx.shadowColor='#ffb34d'; ctx.shadowBlur=18;
+        ctx.beginPath();ctx.ellipse(35,-h*0.65,18,12,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(90,-h*0.65,18,12,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+        // Dust and warning label
+        ctx.fillStyle='rgba(180,130,75,0.18)';ctx.beginPath();ctx.ellipse(0,-h*0.5,600,h*0.56,0,0,Math.PI*2);ctx.fill();
+        ctx.restore();
+        if(this.roar>0){ctx.save();ctx.fillStyle='rgba(255,190,100,0.9)';ctx.font='bold 18px Consolas';ctx.textAlign='center';ctx.fillText('BULL // STRUCTURAL BREACH',canvas.width/2,80);ctx.textAlign='left';ctx.restore();}
+    }
+}
+
 class PowerDown {
     constructor() { this.active = false; this.warningTimer = 0; this.segs = []; this.x = 0; this.warningFlash = 0; }
     trigger() { if (this.active || inSafeRoom) return; this.active = true; this.warningTimer = 330; this.segs = []; this.warningFlash = 0; }
@@ -610,7 +675,8 @@ class Player {
     }
 }
 
-const tracer = new Tracer(); const bynd = new Bynd(); const pd = new PowerDown(); const dropn = new DropN(); const p = new Player();
+const tracer = new Tracer(); const bynd = new Bynd(); const pd = new PowerDown();
+const bull = new Bull(); const dropn = new DropN(); const p = new Player();
 
 // --- LAB BACKGROUND ---
 function generateBgLayers() {
@@ -1144,7 +1210,7 @@ function loop() {
     puzzles.forEach(pz => { pz.update(); pz.draw(camX, camY); });
     updateParticles(); drawParticles(camX, camY);
     if (inSafeRoom) drawSafeRoom(camX, camY);
-    pd.update(); pd.draw(camX, camY); bynd.update(); bynd.draw(camX, camY); tracer.update(); tracer.draw(camX, camY);
+    pd.update(); pd.draw(camX, camY); bull.update(); bull.draw(camX, camY); bynd.update(); bynd.draw(camX, camY); tracer.update(); tracer.draw(camX, camY);
 
     // Player always fully visible
     ctx.globalAlpha = 1.0;
