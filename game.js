@@ -377,66 +377,100 @@ class Bynd {
 }
 
 class Bull {
-    constructor() { this.active=false; this.x=0; this.speed=0; this.spawnTimer=900; this.lastSpawn=0; this.roar=0; }
+    constructor() { this.active=false; this.x=0; this.speed=0; this.spawnTimer=900; this.roar=0; this.segs=[]; }
     spawn() {
         if(this.active||inSafeRoom||!activeMods.has('hallwayRenovation')) return;
-        this.active=true; this.x=Math.max(0,p.x-1500); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=100;
+        this.active=true; this.x=Math.max(0,p.x-1500); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=120; this.segs=[];
     }
     update() {
-        if(!activeMods.has('hallwayRenovation')||inSafeRoom) { this.active=false; return; }
+        if(!activeMods.has('hallwayRenovation')||inSafeRoom) { this.active=false; this.segs=[]; return; }
         if(!this.active) {
             this.spawnTimer--;
             if(this.spawnTimer<=0) { this.spawnTimer=900+Math.random()*900; this.spawn(); }
             return;
         }
         this.x+=this.speed; this.roar=Math.max(0,this.roar-1);
-        // Bull crushes lockers and smaller corridor fixtures as it passes.
+        this.segs.unshift({x:this.x,y:canvas.height-150,phase:frameCount});
+        if(this.segs.length>24) this.segs.pop();
+
+        // Bull can wreck props, but platforms are sacred: they are the player's shelter.
         for(let i=lockers.length-1;i>=0;i--) if(lockers[i].x+lockers[i].w>this.x-100&&lockers[i].x<this.x+this.width()) {
-            spawnParticles(lockers[i].x+lockers[i].w/2,lockers[i].y,'#c7a16a',8,5,20); lockers.splice(i,1);
+            spawnParticles(lockers[i].x+lockers[i].w/2,lockers[i].y,'#6f3b8f',10,6,24); lockers.splice(i,1);
         }
         for(let i=vents.length-1;i>=0;i--) if(vents[i].x+vents[i].w>this.x-80&&vents[i].x<this.x+this.width()) vents.splice(i,1);
         for(let i=decals.length-1;i>=0;i--) if(decals[i].x+decals[i].w>this.x-80&&decals[i].x<this.x+this.width()) decals.splice(i,1);
-        // The ground is indestructible, but overhead platforms can be battered away.
-        for(let i=platforms.length-1;i>=0;i--) {
-            const pl=platforms[i];
-            if(pl.y<canvas.height-200 && pl.x+pl.w>this.x && pl.x<this.x+this.width() && pl.y>100) {
-                if(Math.random()<0.08) { spawnParticles(pl.x+pl.w/2,pl.y,'#9b7852',6,4,18); platforms.splice(i,1); }
-            }
-        }
-        if(!isDodging && Math.abs(this.x+this.width()*0.55-(p.x+p.w/2))<this.width()*0.48 && !this.isPlayerSheltered()) {
+
+        if(!isDodging && Math.abs(this.x+this.width()*0.5-(p.x+p.w/2))<this.width()*0.48 && !this.isPlayerSheltered()) {
             if(activeMods.has('dodge')&&tryDodge()) {} else die('BULL_OVERRUN');
         }
         if(this.x>p.x+canvas.width+1200) this.active=false;
     }
-    width() { return 900; }
+    width() { return 1500; }
     isPlayerSheltered() {
-        const playerCenter=p.x+p.w/2, playerBottom=p.y+p.h;
-        return platforms.some(pl=>pl.w>90&&pl.x<=playerCenter&&pl.x+pl.w>=playerCenter&&pl.y+pl.h<=p.y+8&&pl.y+pl.h>p.y-180&&playerBottom<=pl.y+pl.h+220);
+        const playerCenter=p.x+p.w/2;
+        return platforms.some(pl=>pl.w>90&&pl.x<=playerCenter&&pl.x+pl.w>=playerCenter&&pl.y+pl.h<=p.y+8&&pl.y+pl.h>p.y-220);
     }
     draw(cx,cy) {
         if(!this.active) return;
-        const x=this.x-cx, floor=canvas.height-150-cy, h=canvas.height-220;
+        const x=this.x-cx, floor=canvas.height-150-cy, h=canvas.height-90;
+        const pulse=0.5+Math.sin(frameCount*0.13)*0.5;
         ctx.save(); ctx.translate(x,floor);
-        const pulse=Math.sin(frameCount*0.12)*8;
-        // Long, segmented sandworm body, filling nearly the entire corridor.
-        for(let i=8;i>=0;i--) {
-            const bx=-i*105, by=-h*0.52+Math.sin(frameCount*0.08-i*0.7)*24;
-            const radius=105-i*3;
-            ctx.fillStyle=i%2?'#6b4930':'#8b6542'; ctx.strokeStyle='#34251d'; ctx.lineWidth=7;
-            ctx.beginPath(); ctx.ellipse(bx,by,radius*1.2,h*0.47,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-            ctx.fillStyle='rgba(210,170,112,0.25)'; ctx.beginPath(); ctx.ellipse(bx-15,by-h*0.18,radius*0.65,h*0.08,0,0,Math.PI*2); ctx.fill();
+
+        // Bull's body uses Power Down's segmented, distorted silhouette, scaled up to corridor height.
+        // Each segment is a huge shadow mass with jagged violet energy seams.
+        for(let i=18;i>=0;i--) {
+            const bx=-i*82, sway=Math.sin(frameCount*0.09-i*0.65)*18;
+            const by=-h*0.5+sway, r=145-i*2.5;
+            ctx.shadowColor='#a000ff'; ctx.shadowBlur=28*pulse;
+            ctx.fillStyle=i%2?'#100018':'#21002e';
+            ctx.strokeStyle='#d000ff'; ctx.lineWidth=3+pulse*2;
+            ctx.beginPath();
+            ctx.moveTo(bx-r,by-h*0.48);
+            ctx.lineTo(bx-r*0.72,by-h*0.18);
+            ctx.lineTo(bx-r*1.08,by+h*0.05);
+            ctx.lineTo(bx-r*0.55,by+h*0.43);
+            ctx.lineTo(bx+r*0.4,by+h*0.48);
+            ctx.lineTo(bx+r,by+h*0.12);
+            ctx.lineTo(bx+r*0.78,by-h*0.3);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.shadowBlur=0;
+            ctx.strokeStyle='rgba(255,35,240,0.75)'; ctx.lineWidth=4;
+            ctx.beginPath(); ctx.moveTo(bx-r*0.45,by-h*0.36); ctx.lineTo(bx+r*0.25,by+h*0.3); ctx.stroke();
+            // Power Down-like jagged energy tendrils.
+            for(let t=0;t<3;t++) {
+                const yy=by-h*0.25+t*h*0.22;
+                ctx.strokeStyle=`rgba(230,35,255,${0.25+pulse*0.55})`; ctx.lineWidth=2+pulse*2;
+                ctx.beginPath(); ctx.moveTo(bx,yy);
+                for(let k=1;k<=4;k++) ctx.lineTo(bx+k*24,yy+Math.sin(frameCount*0.3+i+t+k)*22);
+                ctx.stroke();
+            }
         }
-        // Broad armored head and mandibles.
-        ctx.fillStyle='#a27a50'; ctx.strokeStyle='#302117'; ctx.lineWidth=9;
-        ctx.beginPath(); ctx.ellipse(0,-h*0.52,155,h*0.48,0,0,Math.PI*2); ctx.fill(); ctx.stroke();
-        ctx.fillStyle='#21160f'; ctx.beginPath(); ctx.ellipse(55,-h*0.48,80,h*0.22,0,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle='#e6b56c'; for(let i=0;i<6;i++){ctx.beginPath();ctx.moveTo(25+i*20,-h*0.38);ctx.lineTo(45+i*20,-h*0.22);ctx.lineTo(60+i*20,-h*0.38);ctx.fill();}
-        ctx.fillStyle='#f4d18a'; ctx.shadowColor='#ffb34d'; ctx.shadowBlur=18;
-        ctx.beginPath();ctx.ellipse(35,-h*0.65,18,12,0,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.ellipse(90,-h*0.65,18,12,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-        // Dust and warning label
-        ctx.fillStyle='rgba(180,130,75,0.18)';ctx.beginPath();ctx.ellipse(0,-h*0.5,600,h*0.56,0,0,Math.PI*2);ctx.fill();
+
+        // Oversized, featureless head. No eyes, sockets, or eye glow.
+        ctx.shadowColor='#e000ff'; ctx.shadowBlur=45*pulse;
+        ctx.fillStyle='#08000d'; ctx.strokeStyle='#d900ff'; ctx.lineWidth=7;
+        ctx.beginPath();
+        ctx.moveTo(90,-h*0.98); ctx.lineTo(310,-h*0.78);
+        ctx.lineTo(365,-h*0.48); ctx.lineTo(285,-h*0.12);
+        ctx.lineTo(150,-h*0.02); ctx.lineTo(35,-h*0.28);
+        ctx.lineTo(-20,-h*0.62); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.shadowBlur=0;
+
+        // A deep, jagged mouth-like void instead of eyes.
+        ctx.fillStyle='#000'; ctx.strokeStyle='#8d00c9'; ctx.lineWidth=4;
+        ctx.beginPath(); ctx.moveTo(110,-h*0.43); ctx.lineTo(300,-h*0.36);
+        ctx.lineTo(235,-h*0.22); ctx.lineTo(145,-h*0.24); ctx.closePath(); ctx.fill(); ctx.stroke();
+        ctx.fillStyle='#c600ff';
+        for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(125+i*22,-h*0.39);ctx.lineTo(139+i*22,-h*0.29);ctx.lineTo(148+i*22,-h*0.39);ctx.fill();}
+
+        // Distortion and dust obscure the edges, making the creature feel enormous.
+        const aura=ctx.createRadialGradient(120,-h*0.5,20,120,-h*0.5,620);
+        aura.addColorStop(0,'rgba(155,0,255,0.22)'); aura.addColorStop(1,'rgba(20,0,35,0)');
+        ctx.fillStyle=aura; ctx.fillRect(-500,-h,1200,h*1.2);
         ctx.restore();
-        if(this.roar>0){ctx.save();ctx.fillStyle='rgba(255,190,100,0.9)';ctx.font='bold 18px Consolas';ctx.textAlign='center';ctx.fillText('BULL // STRUCTURAL BREACH',canvas.width/2,80);ctx.textAlign='left';ctx.restore();}
+
+        if(frameCount%3===0) spawnParticles(this.x+Math.random()*this.width(),canvas.height-150,'#c600ff',2,8,18);
+        if(this.roar>0){ctx.save();ctx.fillStyle='rgba(245,70,255,0.95)';ctx.font='bold 22px Consolas';ctx.textAlign='center';ctx.fillText('BULL // ENTITY APPROACHING',canvas.width/2,80);ctx.textAlign='left';ctx.restore();}
     }
 }
 
