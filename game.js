@@ -387,11 +387,139 @@ class PowerDown {
     }
     draw(cx, cy) {
         if (!this.active) return;
-        if (this.warningTimer > 0) { let intensity = (330 - this.warningTimer) / 330; ctx.strokeStyle = `rgba(200, 0, 200, ${intensity * 0.5 * (this.warningFlash ? 1 : 0.3)})`; ctx.lineWidth = 8; ctx.strokeRect(4, 4, canvas.width - 8, canvas.height - 8); ctx.fillStyle = `rgba(200, 0, 200, ${intensity * (this.warningFlash ? 1 : 0.4)})`; ctx.font = 'bold 24px Consolas'; ctx.textAlign = 'center'; ctx.fillText('PURGE PROTOCOL ACTIVE', canvas.width / 2, 60); ctx.font = '14px Consolas'; ctx.fillText('EVACUATE IMMEDIATELY', canvas.width / 2, 85); ctx.textAlign = 'left'; return; }
-        this.segs.forEach((s, i) => { let radius = 45 - i * 1.5; if (radius <= 0) return; if (i === 0) { ctx.fillStyle = 'rgba(200, 0, 200, 0.1)'; ctx.beginPath(); ctx.arc(s.x - cx, s.y - cy, radius + 20, 0, Math.PI * 2); ctx.fill(); } let alpha = 1 - i / 25; let segGrad = ctx.createRadialGradient(s.x - cx, s.y - cy, 0, s.x - cx, s.y - cy, radius); segGrad.addColorStop(0, `rgba(255, 0, 255, ${alpha})`); segGrad.addColorStop(0.6, `rgba(150, 0, 150, ${alpha})`); segGrad.addColorStop(1, `rgba(80, 0, 80, ${alpha * 0.5})`); ctx.fillStyle = segGrad; ctx.beginPath(); ctx.arc(s.x - cx, s.y - cy, radius, 0, Math.PI * 2); ctx.fill(); });
-        if (this.segs.length > 0) { let head = this.segs[0], hx = head.x - cx, hy = head.y - cy; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(hx - 12, hy - 8, 5, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(hx + 12, hy - 8, 5, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f0f'; ctx.beginPath(); ctx.arc(hx - 12, hy - 8, 3, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(hx + 12, hy - 8, 3, 0, Math.PI * 2); ctx.fill(); }
-        if (frameCount % 2 === 0 && this.segs.length > 0) { let tail = this.segs[this.segs.length - 1]; spawnParticles(tail.x, tail.y, "#f0f", 1, 3, 10); }
+        const pulse = 0.5 + Math.sin(frameCount * 0.18) * 0.5;
+        const glitch = Math.sin(frameCount * 1.7) > 0.82;
+
+        if (this.warningTimer > 0) {
+            const elapsed = 330 - this.warningTimer;
+            const progress = Math.min(1, elapsed / 330);
+            const urgency = 0.25 + progress * 0.55 + pulse * 0.15;
+
+            // Purple-red emergency lighting across the screen.
+            ctx.save();
+            ctx.fillStyle = `rgba(24, 0, 35, ${0.08 + urgency * 0.12})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = `rgba(220, 40, 255, ${urgency})`;
+            ctx.lineWidth = 3 + pulse * 3;
+            ctx.strokeRect(12, 12, canvas.width - 24, canvas.height - 24);
+
+            // Corner warning brackets and scanline interference.
+            ctx.strokeStyle = `rgba(255, 45, 70, ${0.35 + pulse * 0.45})`;
+            ctx.lineWidth = 5;
+            const corner = 38 + pulse * 12;
+            [[20,20,1,1],[canvas.width-20,20,-1,1],[20,canvas.height-20,1,-1],[canvas.width-20,canvas.height-20,-1,-1]].forEach(([x,y,dx,dy]) => {
+                ctx.beginPath(); ctx.moveTo(x, y + dy * corner); ctx.lineTo(x, y); ctx.lineTo(x + dx * corner, y); ctx.stroke();
+            });
+            for (let i = 0; i < 7; i++) {
+                const scanY = (frameCount * 13 + i * 97) % canvas.height;
+                ctx.fillStyle = `rgba(255, 0, 90, ${0.025 + pulse * 0.035})`;
+                ctx.fillRect(0, scanY, canvas.width, 2 + pulse * 2);
+            }
+
+            // Central alert panel with a progress bar.
+            const panelW = Math.min(560, canvas.width - 40), panelH = 142;
+            const panelX = (canvas.width - panelW) / 2, panelY = 42 + pulse * 4;
+            ctx.fillStyle = 'rgba(8, 4, 14, 0.88)';
+            ctx.fillRect(panelX, panelY, panelW, panelH);
+            ctx.strokeStyle = `rgba(255, 35, 100, ${0.7 + pulse * 0.3})`;
+            ctx.lineWidth = 2; ctx.strokeRect(panelX, panelY, panelW, panelH);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#ff315d';
+            ctx.font = 'bold 13px Consolas';
+            ctx.fillText('FACILITY EMERGENCY  //  PD-09', canvas.width / 2, panelY + 24);
+            ctx.fillStyle = glitch ? '#fff' : '#f2d9ff';
+            ctx.font = 'bold 29px Consolas';
+            ctx.fillText(glitch ? 'POWER FAILURE' : 'POWER DOWN', canvas.width / 2, panelY + 61);
+            ctx.fillStyle = '#ffb8c7';
+            ctx.font = 'bold 15px Consolas';
+            ctx.fillText('PURGE ENTITY DETECTED  •  RUN', canvas.width / 2, panelY + 88);
+
+            const barW = panelW - 54, barX = panelX + 27, barY = panelY + 108;
+            ctx.fillStyle = '#250d1b'; ctx.fillRect(barX, barY, barW, 9);
+            ctx.fillStyle = '#ff315d'; ctx.fillRect(barX, barY, barW * progress, 9);
+            ctx.fillStyle = '#fff'; ctx.font = '11px Consolas';
+            ctx.fillText('CONTAINMENT FAILURE  //  EVACUATE NOW', canvas.width / 2, panelY + 133);
+            ctx.textAlign = 'left';
+
+            // Directional signal points toward the approaching entity.
+            const signalX = canvas.width - 42, signalY = canvas.height / 2;
+            ctx.translate(signalX, signalY);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillStyle = `rgba(255, 35, 90, ${0.5 + pulse * 0.5})`;
+            ctx.beginPath(); ctx.moveTo(0, -14); ctx.lineTo(13, 10); ctx.lineTo(-13, 10); ctx.closePath(); ctx.fill();
+            ctx.restore();
+            return;
+        }
+
+        // The Power Down entity is a fast-moving distortion, not just a chain of dots.
+        const head = this.segs[0];
+        if (head) {
+            const hx = head.x - cx, hy = head.y - cy;
+            ctx.save();
+            // Screen-space distortion aura around the entity.
+            const aura = ctx.createRadialGradient(hx, hy, 8, hx, hy, 190);
+            aura.addColorStop(0, 'rgba(255, 0, 220, 0.26)');
+            aura.addColorStop(0.45, 'rgba(130, 0, 180, 0.13)');
+            aura.addColorStop(1, 'rgba(30, 0, 50, 0)');
+            ctx.fillStyle = aura; ctx.fillRect(hx - 190, hy - 190, 380, 380);
+
+            // Jagged energy tendrils behind its body.
+            for (let t = 0; t < 5; t++) {
+                const angle = frameCount * 0.07 + t * Math.PI * 2 / 5;
+                ctx.strokeStyle = `rgba(255, 35, 240, ${0.25 + pulse * 0.45})`;
+                ctx.lineWidth = 2 + pulse * 2;
+                ctx.beginPath(); ctx.moveTo(hx, hy);
+                for (let j = 1; j <= 5; j++) {
+                    const distance = j * (18 + pulse * 8);
+                    const jitter = Math.sin(frameCount * 0.4 + t * 8 + j * 3) * 18;
+                    ctx.lineTo(hx + Math.cos(angle) * distance + jitter, hy + Math.sin(angle) * distance);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Trail with a bright core and fading violet outer glow.
+        this.segs.forEach((seg, i) => {
+            const x = seg.x - cx, y = seg.y - cy;
+            const alpha = 1 - i / Math.max(this.segs.length, 1);
+            const radius = Math.max(3, 30 - i * 1.05);
+            ctx.fillStyle = `rgba(130, 0, 190, ${alpha * 0.12})`;
+            ctx.beginPath(); ctx.arc(x, y, radius + 24, 0, Math.PI * 2); ctx.fill();
+            const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+            gradient.addColorStop(0, `rgba(255, 255, 255, ${alpha})`);
+            gradient.addColorStop(0.22, `rgba(255, 70, 245, ${alpha})`);
+            gradient.addColorStop(0.65, `rgba(170, 0, 255, ${alpha * 0.8})`);
+            gradient.addColorStop(1, 'rgba(45, 0, 90, 0)');
+            ctx.fillStyle = gradient; ctx.beginPath(); ctx.arc(x, y, radius, 0, Math.PI * 2); ctx.fill();
+        });
+
+        if (head) {
+            const hx = head.x - cx, hy = head.y - cy;
+            ctx.save();
+            ctx.shadowColor = '#ff00ed'; ctx.shadowBlur = 28;
+            ctx.fillStyle = '#120018'; ctx.beginPath(); ctx.arc(hx, hy, 33, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#ff35f4'; ctx.lineWidth = 3; ctx.stroke();
+            // Glowing eyes and a sharp, ominous center.
+            ctx.shadowBlur = 12; ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.ellipse(hx - 11, hy - 5, 6, 10, -0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(hx + 11, hy - 5, 6, 10, 0.3, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#ff00d9';
+            ctx.beginPath(); ctx.arc(hx - 11, hy - 5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.beginPath(); ctx.arc(hx + 11, hy - 5, 3, 0, Math.PI * 2); ctx.fill();
+            ctx.strokeStyle = '#ff00ed'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(hx - 9, hy + 13); ctx.lineTo(hx, hy + 18); ctx.lineTo(hx + 9, hy + 13); ctx.stroke();
+            ctx.restore();
+        }
+
+        // Keep a small amount of particle activity without flooding the screen.
+        if (frameCount % 3 === 0 && this.segs.length > 0) {
+            const tail = this.segs[this.segs.length - 1];
+            spawnParticles(tail.x, tail.y, '#d600ff', 1, 4, 8);
+        }
     }
+}
 }
 
 // --- PLAYER ---
