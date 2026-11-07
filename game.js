@@ -533,11 +533,15 @@ function drawLabRoom(room, cx, cy) {
     const wall = 18, floorY = room.y + room.h - 150;
     const accent = room.type === 'hazard' ? '#b84b4b' : '#7b8794';
 
+    // Room shell. The side walls stop above the doorway, matching the
+    // physical collision walls generated in generateFloor().
     ctx.fillStyle = '#111820'; ctx.fillRect(sx, sy, room.w, room.h);
     ctx.fillStyle = '#252d36';
     ctx.fillRect(sx, sy, room.w, 22);
-    ctx.fillRect(sx, sy, wall, room.h);
-    ctx.fillRect(sx + room.w - wall, sy, wall, room.h);
+    const doorwayHeight = 190;
+    const wallBottom = floorY - doorwayHeight;
+    ctx.fillRect(sx, sy + 22, wall, Math.max(0, wallBottom - (room.y + 22)) );
+    ctx.fillRect(sx + room.w - wall, sy + 22, wall, Math.max(0, wallBottom - (room.y + 22)) );
     ctx.fillStyle = '#303943'; ctx.fillRect(sx, floorY - cy, room.w, 150);
     ctx.fillStyle = '#68727d'; ctx.fillRect(sx, floorY - cy, room.w, 5);
 
@@ -752,6 +756,17 @@ function generateFloor() {
                 if (vineX2 - (vineX + vineW) > 100) vinePatches.push(new VinePatch(vineX2, vinePlat.y, vineW2));
             }
         }
+
+        // Physical room walls: solid upper wall sections leave a real doorway
+        // opening from the floor up to the door lintel. These are collision
+        // platforms, not just decorative door frames.
+        const wallThickness = 24;
+        const doorwayHeight = 190;
+        const doorwayTop = Math.max(40, roomFloorY - doorwayHeight);
+        platforms.push(
+            { x: curX, y: 20, w: wallThickness, h: doorwayTop - 20 },
+            { x: curX + roomW - wallThickness, y: 20, w: wallThickness, h: doorwayTop - 20 }
+        );
 
         // Vents - only if DUCTWORK mod is active
         if (activeMods.has('vents') && Math.random() > 0.45 && roomFloorPlats.length > 0) {
