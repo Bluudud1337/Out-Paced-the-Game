@@ -377,10 +377,10 @@ class Bynd {
 }
 
 class Bull {
-    constructor() { this.active=false; this.x=0; this.speed=0; this.spawnTimer=900; this.roar=0; this.segs=[]; }
+    constructor() { this.active=false; this.x=0; this.speed=0; this.spawnTimer=900; this.roar=0; this.segs=[]; this.destroyedProps=new Set(); }
     spawn() {
         if(this.active||inSafeRoom||!activeMods.has('hallwayRenovation')) return;
-        this.active=true; this.x=Math.max(0,p.x-3200); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=120; this.segs=[];
+        this.active=true; this.x=Math.max(0,p.x-3200); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=120; this.segs=[]; this.destroyedProps.clear();
     }
     update() {
         if(!activeMods.has('hallwayRenovation')||inSafeRoom) { this.active=false; this.segs=[]; return; }
@@ -391,12 +391,33 @@ class Bull {
         }
         this.x+=this.speed; this.roar=Math.max(0,this.roar-1);
 
-        // Bull can wreck props, but platforms are sacred: they are the player's shelter.
-        for(let i=lockers.length-1;i>=0;i--) if(lockers[i].x+lockers[i].w>this.x-100&&lockers[i].x<this.x+this.width()) {
-            spawnParticles(lockers[i].x+lockers[i].w/2,lockers[i].y,'#6f3b8f',10,6,24); lockers.splice(i,1);
+        // Bull visibly devours environmental props as its head passes.
+        const biteX=this.x+300;
+        for(let i=lockers.length-1;i>=0;i--) {
+            const o=lockers[i], key='locker:'+Math.round(o.x);
+            if(o.x+o.w>biteX-75&&o.x<biteX+90&&!this.destroyedProps.has(key)) {
+                this.destroyedProps.add(key);
+                spawnParticles(o.x+o.w/2,o.y+o.h/2,'#858b8e',18,8,30);
+                spawnParticles(o.x+o.w/2,o.y+o.h/2,'#3b4043',12,5,22);
+                lockers.splice(i,1);
+            }
         }
-        for(let i=vents.length-1;i>=0;i--) if(vents[i].x+vents[i].w>this.x-80&&vents[i].x<this.x+this.width()) vents.splice(i,1);
-        for(let i=decals.length-1;i>=0;i--) if(decals[i].x+decals[i].w>this.x-80&&decals[i].x<this.x+this.width()) decals.splice(i,1);
+        for(let i=vents.length-1;i>=0;i--) {
+            const o=vents[i], key='vent:'+Math.round(o.x);
+            if(o.x+o.w>biteX-70&&o.x<biteX+90&&!this.destroyedProps.has(key)) {
+                this.destroyedProps.add(key);
+                spawnParticles(o.x+o.w/2,o.y+o.h/2,'#8b9295',12,7,26);
+                vents.splice(i,1);
+            }
+        }
+        for(let i=decals.length-1;i>=0;i--) {
+            const o=decals[i], key='decal:'+Math.round(o.x);
+            if(o.x+o.w>biteX-65&&o.x<biteX+80&&!this.destroyedProps.has(key)) {
+                this.destroyedProps.add(key);
+                spawnParticles(o.x+o.w/2,o.y+o.h/2,'#656b6e',7,4,18);
+                decals.splice(i,1);
+            }
+        }
 
         // Only kill when Bull's head reaches the player, not when the long body first appears.
         if(!isDodging && Math.abs(this.x+180-(p.x+p.w/2))<Math.max(100,p.w*0.8) && !this.isPlayerSheltered()) {
@@ -412,58 +433,49 @@ class Bull {
     draw(cx,cy) {
         if(!this.active) return;
         const x=this.x-cx, floor=canvas.height-150-cy, h=canvas.height-90;
-        const pulse=0.5+Math.sin(frameCount*0.08)*0.5;
         ctx.save(); ctx.translate(x,floor);
 
-        // Rounded, heavy industrial segments. Minimal glow/shadow keeps this cheap to render.
+        // Bull rides low: circles overlap along the floor, not tall floating ovals.
+        const radius=Math.max(95,h*0.43);
         for(let i=13;i>=0;i--) {
             const bx=-i*105;
-            const sway=Math.sin(frameCount*0.045-i*0.48)*9;
-            const by=-h*0.5+sway;
-            const rx=165-i*3, ry=h*0.47;
+            const by=-radius+Math.sin(frameCount*0.035-i*0.4)*5;
+            const r=radius-i*2;
             ctx.fillStyle=i%2?'#292d30':'#3b4043';
             ctx.strokeStyle=i%2?'#555c60':'#686f73';
             ctx.lineWidth=3;
-            ctx.beginPath();
-            ctx.ellipse(bx,by,rx,ry,Math.sin(i*0.3)*0.025,0,Math.PI*2);
-            ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(bx,by,r,0,Math.PI*2); ctx.fill(); ctx.stroke();
 
-            // A single muted seam gives the segments a worn, mechanical look.
-            ctx.strokeStyle='rgba(145,153,157,0.42)';
-            ctx.lineWidth=5;
+            // Small battered-metal plates across each round segment.
+            ctx.strokeStyle='rgba(145,153,157,0.4)'; ctx.lineWidth=4;
             ctx.beginPath();
-            ctx.moveTo(bx-rx*0.45,by-ry*0.55);
-            ctx.quadraticCurveTo(bx+rx*0.1,by, bx+rx*0.45,by+ry*0.55);
+            ctx.arc(bx-r*0.12,by-r*0.08,r*0.68,Math.PI*0.18,Math.PI*0.72);
             ctx.stroke();
         }
 
-        // Broad, blunt industrial head with no eyes.
-        ctx.fillStyle='#171a1c';
-        ctx.strokeStyle='#737b7f';
-        ctx.lineWidth=6;
+        // Head is also low and broad, with a blunt feeding mouth.
+        const headY=-radius*1.55;
+        ctx.fillStyle='#171a1c'; ctx.strokeStyle='#737b7f'; ctx.lineWidth=6;
         ctx.beginPath();
-        ctx.moveTo(45,-h*0.92);
-        ctx.quadraticCurveTo(180,-h*1.02,315,-h*0.78);
-        ctx.quadraticCurveTo(390,-h*0.56,350,-h*0.31);
-        ctx.quadraticCurveTo(300,-h*0.06,165,-h*0.04);
-        ctx.quadraticCurveTo(55,-h*0.16,5,-h*0.48);
-        ctx.quadraticCurveTo(-25,-h*0.73,45,-h*0.92);
+        ctx.arc(180,headY,radius*1.02,Math.PI*0.15,Math.PI*1.85);
+        ctx.quadraticCurveTo(390,headY+radius*0.45,340,headY+radius*0.8);
+        ctx.quadraticCurveTo(200,headY+radius*0.95,60,headY+radius*0.65);
         ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // Dark vent-like maw, metallic rather than glowing.
-        ctx.fillStyle='#080a0b';
-        ctx.strokeStyle='#4b5154';
-        ctx.lineWidth=4;
+        // Mouth opens toward the ground, making it look like it is chewing through the hall.
+        ctx.fillStyle='#080a0b'; ctx.strokeStyle='#4b5154'; ctx.lineWidth=4;
         ctx.beginPath();
-        ctx.moveTo(105,-h*0.43);
-        ctx.quadraticCurveTo(205,-h*0.49,300,-h*0.38);
-        ctx.lineTo(245,-h*0.23);
-        ctx.quadraticCurveTo(165,-h*0.20,125,-h*0.27);
+        ctx.moveTo(100,headY+radius*0.55);
+        ctx.quadraticCurveTo(225,headY+radius*0.42,320,headY+radius*0.68);
+        ctx.lineTo(265,headY+radius*0.94);
+        ctx.quadraticCurveTo(175,headY+radius*0.98,125,headY+radius*0.83);
         ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // Sparse dust only; avoid per-frame particle bursts.
+        // A few chunky gray fragments fall from the mouth.
+        if(frameCount%18===0) {
+            spawnParticles(this.x+260,canvas.height-150,'#858b8e',2,4,18);
+        }
         ctx.restore();
-        if(frameCount%12===0) spawnParticles(this.x+this.width()*0.45,canvas.height-150,'#737b7f',1,3,12);
         if(this.roar>0){
             ctx.save(); ctx.fillStyle='rgba(180,188,192,0.9)';
             ctx.font='bold 22px Consolas'; ctx.textAlign='center';
