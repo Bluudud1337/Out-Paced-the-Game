@@ -849,171 +849,69 @@ function drawSafeRoom(cx, cy) {
 
 // --- ROOM GENERATION ---
 function generateFloor() {
-    // ROOM GENERATOR V2: each sector is assembled from a room blueprint.
-    // The floor elevation is carried forward, so stairwells genuinely descend.
-    platforms = []; hazards = []; lockers = []; decals = []; lasers = []; rooms = []; puzzles = [];
-    ceilings = []; vents = []; vinePatches = [];
-    vineCaught = false; vineCaughtPatch = null; vineEscapeCount = 0; vineTrapTime = 0;
+    // ROOM GENERATOR V3: stable floor grid + modular room layouts.
+    // Elevation is fixed per sector so stair chains cannot push the safe room away.
+    platforms=[]; hazards=[]; lockers=[]; decals=[]; lasers=[]; rooms=[]; puzzles=[];
+    ceilings=[]; vents=[]; vinePatches=[];
+    vineCaught=false; vineCaughtPatch=null; vineEscapeCount=0; vineTrapTime=0;
 
-    let curX = 0;
-    let floorY = canvas.height - 150;
-    const roomBlueprints = [
-        { type: 'hallway', label: 'SERVICE_HALL', weight: 18 },
-        { type: 'storage', label: 'STORAGE', weight: 16 },
-        { type: 'lab', label: 'RESEARCH_LAB', weight: 15 },
-        { type: 'hazard', label: 'CONTAINMENT', weight: 12 },
-        { type: 'stairs', label: 'LOWER_LEVEL', weight: 14 },
-        { type: 'catwalk', label: 'CATWALK', weight: 10 },
-        { type: 'hideout', label: 'MAINTENANCE', weight: 10 },
-        { type: 'chamber', label: 'CONTROL_ROOM', weight: 5 }
-    ];
-    const chooseBlueprint = () => {
-        let roll = Math.random() * roomBlueprints.reduce((sum, r) => sum + r.weight, 0);
-        for (const blueprint of roomBlueprints) {
-            roll -= blueprint.weight;
-            if (roll <= 0) return blueprint;
-        }
-        return roomBlueprints[0];
-    };
+    const floorY=canvas.height-150, roomTopY=70, roomHeight=floorY-roomTopY;
+    const roomTypes=['hallway','storage','lab','hazard','catwalk','hideout','chamber','maintenance','containment'];
+    const roomW=1450;
+    let curX=1000, roomIndex=0, ventIdCounter=0;
 
-    // Entry room
-    platforms.push({ x: -500, y: floorY, w: 1500, h: 600 });
-    ceilings.push({ x: -500, y: 20, w: 1500, h: 20 });
-    rooms.push({ x: -500, y: 0, w: 1500, h: canvas.height, floorY, type: 'start', label: 'SECTOR_' + floorNum + '::ENTRY', hasDoorLeft: false, hasDoorRight: true });
-    curX = 1000;
+    // Entry zone
+    platforms.push({x:-500,y:floorY,w:1500,h:600});
+    ceilings.push({x:-500,y:roomTopY,w:1500,h:20});
+    rooms.push({x:-500,y:roomTopY,w:1500,h:roomHeight,floorY,type:'start',label:'SECTOR_'+floorNum+'::ENTRY',hasDoorLeft:false,hasDoorRight:true});
 
-    let roomCount = 0, ventIdCounter = 0;
-    while (curX < gateX - 2000) {
-        roomCount++;
-        const blueprint = chooseBlueprint();
-        const type = blueprint.type;
-        const roomW = type === 'stairs' ? 1050 + Math.random() * 250 : 760 + Math.random() * 440;
-        const entryFloorY = floorY;
-        let exitFloorY = entryFloorY;
-        const roomTopY = Math.max(20, entryFloorY - 570);
-        const room = {
-            x: curX, y: roomTopY, w: roomW, h: exitFloorY - roomTopY + 150,
-            type, label: blueprint.label + '_' + roomCount,
-            floorY: entryFloorY, hasDoorLeft: true, hasDoorRight: true,
-            roomNumber: roomCount
-        };
+    while(curX<gateX-2200) {
+        const type=roomTypes[roomIndex%roomTypes.length];
+        const w=Math.min(roomW,gateX-2200-curX);
+        const room={x:curX,y:roomTopY,w,h:roomHeight,type,label:type.toUpperCase()+'_BLOCK_'+(roomIndex+1),floorY,hasDoorLeft:true,hasDoorRight:true,roomNumber:roomIndex+1};
+        // One continuous ground level across every room.
+        platforms.push({x:curX,y:floorY,w,h:600});
 
-        // Main floor plan. Stairwells use individual descending treads.
-        if (type === 'stairs') {
-            const steps = 7 + Math.floor(Math.random() * 3);
-            const stepW = (roomW - 180) / steps;
-            const descent = 200 + Math.random() * 150;
-            room.stairSteps = steps;
-            room.stairsEndY = entryFloorY + descent;
-            platforms.push({ x: curX, y: entryFloorY, w: 90, h: 600 });
-            for (let i = 0; i < steps; i++) {
-                const stepY = entryFloorY + ((i + 1) / steps) * descent;
-                platforms.push({ x: curX + 90 + i * stepW, y: stepY, w: stepW + 2, h: 600 });
-            }
-            exitFloorY = room.stairsEndY;
-            platforms.push({ x: curX + roomW - 90, y: exitFloorY, w: 90, h: 600 });
+        if(type==='storage') {
+            for(let i=0;i<3;i++){const x=curX+180+i*360;platforms.push({x,y:floorY-125,w:180,h:18},{x:x+35,y:floorY-245,w:110,h:18});}
+        } else if(type==='lab'||type==='chamber') {
+            platforms.push({x:curX+190,y:floorY-115,w:210,h:18},{x:curX+620,y:floorY-205,w:190,h:18},{x:curX+1030,y:floorY-115,w:210,h:18});
+        } else if(type==='hazard'||type==='containment') {
+            const hx=curX+330, hw=Math.max(180,w-660); hazards.push({x:hx,y:floorY+70,w:hw,h:500,type:'lava'});
+            const sw=(hw-40)/3; for(let i=0;i<3;i++) platforms.push({x:hx+20+i*sw,y:floorY-100-(i%2)*35,w:sw-20,h:20});
+        } else if(type==='catwalk') {
+            platforms.push({x:curX+170,y:floorY-165,w:w-340,h:20},{x:curX+420,y:floorY-300,w:170,h:18},{x:curX+850,y:floorY-300,w:170,h:18}); room.featureY=floorY-165;
+        } else if(type==='hideout'||type==='maintenance') {
+            platforms.push({x:curX+260,y:floorY-85,w:w-520,h:20}); room.alcoveY=floorY-85;
         } else {
-            platforms.push({ x: curX, y: entryFloorY, w: roomW, h: 600 });
+            for(let i=0;i<3;i++) platforms.push({x:curX+260+i*360,y:floorY-90-(i%2)*55,w:150,h:18});
         }
 
-        // Some room types contain extra traversal or hazard geometry.
-        if (type === 'catwalk') {
-            const ledgeY = entryFloorY - 130 - Math.random() * 100;
-            platforms.push({ x: curX + 160, y: ledgeY, w: roomW - 320, h: 20 });
-            room.featureY = ledgeY;
-        } else if (type === 'hazard') {
-            const hazardX = curX + 180, hazardW = roomW - 360;
-            hazards.push({ x: hazardX, y: entryFloorY + 70, w: hazardW, h: 500, type: 'lava' });
-            const treadCount = 3 + Math.floor(Math.random() * 3);
-            for (let i = 0; i < treadCount; i++) {
-                platforms.push({ x: hazardX + 30 + i * (hazardW / treadCount), y: entryFloorY - 80 - Math.random() * 70, w: Math.max(80, hazardW / treadCount - 40), h: 20 });
-            }
-        } else if (type === 'lab' || type === 'chamber') {
-            // Small raised work platforms and equipment shelves.
-            for (let i = 0; i < 2; i++) {
-                platforms.push({ x: curX + 180 + i * (roomW - 420), y: entryFloorY - 100 - i * 70, w: 150, h: 20 });
-            }
-        } else if (type === 'storage') {
-            // Storage aisles create a recognizable warehouse layout.
-            for (let i = 0; i < 3; i++) {
-                const shelfX = curX + 170 + i * Math.max(180, (roomW - 300) / 3);
-                platforms.push({ x: shelfX, y: entryFloorY - 115, w: 130, h: 18 });
-                platforms.push({ x: shelfX + 20, y: entryFloorY - 230, w: 90, h: 18 });
-            }
-        } else if (type === 'hideout') {
-            // Maintenance alcoves and a low platform make this room feel sheltered.
-            platforms.push({ x: curX + 220, y: entryFloorY - 75, w: roomW - 440, h: 20 });
-            room.alcoveY = entryFloorY - 75;
-        }
+        // Door frames with a player-sized opening.
+        const jamb=26, doorTop=floorY-205;
+        platforms.push({x:curX,y:roomTopY,w:jamb,h:doorTop-roomTopY},{x:curX+w-jamb,y:roomTopY,w:jamb,h:doorTop-roomTopY});
+        ceilings.push({x:curX,y:roomTopY,w,h:20}); rooms.push(room);
 
-        // Every room has a real doorway opening between solid upper wall sections.
-        const wallThickness = 24, doorwayHeight = 190;
-        const doorwayTop = Math.max(roomTopY + 22, entryFloorY - doorwayHeight);
-        platforms.push(
-            { x: curX, y: roomTopY, w: wallThickness, h: Math.max(0, doorwayTop - roomTopY) },
-            { x: curX + roomW - wallThickness, y: roomTopY, w: wallThickness, h: Math.max(0, doorwayTop - roomTopY) }
-        );
-        ceilings.push({ x: curX, y: roomTopY, w: roomW, h: 20 });
-        rooms.push(room);
+        const lockerCount=(type==='storage'||type==='hideout'||type==='maintenance')?2:(Math.random()>.55?1:0);
+        for(let i=0;i<lockerCount;i++) lockers.push({x:curX+120+Math.random()*Math.max(100,w-240),y:floorY-100,w:60,h:100,openAnim:0});
 
-        // Hiding spots: storage and maintenance rooms always have one;
-        // other rooms can spawn lockers too. Existing hide mechanics stay intact.
-        const lockerCount = (type === 'storage' || type === 'hideout') ? 2 : (Math.random() > 0.45 ? 1 : 0);
-        for (let i = 0; i < lockerCount; i++) {
-            let lockerX = curX + 100 + Math.random() * Math.max(roomW - 220, 20);
-            lockers.push({ x: lockerX, y: entryFloorY - 100, w: 60, h: 100, openAnim: 0 });
-        }
-
-        // Keep the optional mod systems compatible with the new room layout.
-        const roomFloorPlats = platforms.filter(pl => pl.x >= curX && pl.x < curX + roomW && !pl.isSlope && pl.w >= 80 && pl.y >= entryFloorY - 300 && pl.y <= exitFloorY + 10);
-        if (activeMods.has('vine') && Math.random() > 0.4 && roomFloorPlats.length) {
-            const vinePlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
-            const vineW = 60 + Math.random() * 80;
-            const vineX = vinePlat.x + 30 + Math.random() * Math.max(vinePlat.w - vineW - 60, 10);
-            vinePatches.push(new VinePatch(vineX, vinePlat.y, vineW));
-        }
-        if (activeMods.has('vents') && Math.random() > 0.45 && roomFloorPlats.length) {
-            const ventPlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
-            const ventX = ventPlat.x + 30 + Math.random() * Math.max(ventPlat.w - 110, 10);
-            const newVent = { x: ventX, y: ventPlat.y - 60, w: 80, h: 60, connectedTo: -1, id: ventIdCounter };
-            let nearestIdx = -1, nearestDist = Infinity;
-            vents.forEach((v, vi) => { const dist = Math.hypot(v.x - ventX, v.y - newVent.y); if (dist < nearestDist && dist < 3000) { nearestDist = dist; nearestIdx = vi; } });
-            if (nearestIdx >= 0) { newVent.connectedTo = nearestIdx; vents[nearestIdx].connectedTo = ventIdCounter; }
-            vents.push(newVent); ventIdCounter++;
-        }
-        if (activeMods.has('puzzles') && Math.random() > 0.55 && roomFloorPlats.length) {
-            const safePlat = roomFloorPlats[0], safeY = safePlat.y - 20;
-            const safeX = safePlat.x + 60, doorX = curX + roomW - 120, doorY = entryFloorY - 400;
-            if (Math.random() < 0.5) puzzles.push(new Puzzle({ type: 'switch', x: curX, y: entryFloorY, switchX: safeX + Math.random() * Math.max(safePlat.w - 100, 20), switchY: safeY, doorX, doorY, doorW: 100, doorH: 400 }));
-            else puzzles.push(new Puzzle({ type: 'cord', x: curX, y: entryFloorY, plugX: safeX, plugY: safeY, socketX: doorX - 40, socketY: safeY, doorX, doorY, doorW: 100, doorH: 400 }));
-        }
-        if (Math.random() > 0.65) decals.push({ x: curX + Math.random() * roomW, y: roomTopY + 60 + Math.random() * 180, w: 40 + Math.random() * 60, h: 20 + Math.random() * 30, c: 'rgba(0,242,255,0.08)', type: 'circuit' });
-        if (activeMods.has('puzzles') && Math.random() > 0.75) {
-            lasers.push({ x: curX + roomW * 0.55, y: entryFloorY - 300, w: 20, h: 300, sx: curX + roomW * 0.5, sy: entryFloorY - 20, active: true });
-        }
-
-        floorY = exitFloorY;
-        curX += roomW;
+        const roomPlats=platforms.filter(pl=>pl.x>=curX&&pl.x<curX+w&&pl.w>=80&&pl.y>=floorY-340&&pl.y<=floorY+10);
+        if(activeMods.has('vine')&&Math.random()>.4&&roomPlats.length){const pl=roomPlats[Math.floor(Math.random()*roomPlats.length)],vw=60+Math.random()*80;vinePatches.push(new VinePatch(pl.x+30+Math.random()*Math.max(10,pl.w-vw-60),pl.y,vw));}
+        if(activeMods.has('vents')&&Math.random()>.45&&roomPlats.length){const pl=roomPlats[Math.floor(Math.random()*roomPlats.length)],vx=pl.x+30+Math.random()*Math.max(10,pl.w-110),v={x:vx,y:pl.y-60,w:80,h:60,connectedTo:-1,id:ventIdCounter++};let nearest=-1,dist=Infinity;vents.forEach((old,i)=>{const d=Math.hypot(old.x-vx,old.y-v.y);if(d<dist&&d<3000){dist=d;nearest=i;}});if(nearest>=0){v.connectedTo=nearest;vents[nearest].connectedTo=v.id;}vents.push(v);}
+        if(activeMods.has('puzzles')&&Math.random()>.6&&roomPlats.length){const pl=roomPlats[Math.floor(Math.random()*roomPlats.length)],dx=curX+w-120,dy=floorY-400;if(Math.random()<.5)puzzles.push(new Puzzle({type:'switch',x:curX,y:floorY,switchX:pl.x+Math.min(60,pl.w/2),switchY:pl.y-20,doorX:dx,doorY:dy,doorW:100,doorH:400}));else puzzles.push(new Puzzle({type:'cord',x:curX,y:floorY,plugX:pl.x+60,plugY:pl.y-20,socketX:dx-40,socketY:pl.y-20,doorX:dx,doorY:dy,doorW:100,doorH:400}));}
+        if(Math.random()>.65) decals.push({x:curX+100+Math.random()*Math.max(20,w-200),y:roomTopY+60+Math.random()*180,w:40+Math.random()*60,h:20+Math.random()*30,c:'rgba(0,242,255,0.08)',type:'circuit'});
+        if(activeMods.has('puzzles')&&Math.random()>.78) lasers.push({x:curX+w*.55,y:floorY-300,w:20,h:300,sx:curX+w*.5,sy:floorY-20,active:true});
+        curX+=w; roomIndex++;
     }
 
-    // Safe room: keep its floor near the visible play area even after
-    // several descending stairwells. Connect the last generated floor to it.
-    const safeFloorY = Math.min(floorY, canvas.height - 90);
-    const safeRoomTopY = Math.max(20, safeFloorY - 570);
-    if (safeFloorY !== floorY) {
-        platforms.push({ x: gateX - 1200, y: floorY, w: 1200, h: 600 });
-        platforms.push({ x: gateX - 1200, y: safeFloorY, w: 1200, h: 600 });
-    }
-    platforms.push({ x: gateX - 600, y: safeFloorY, w: 600, h: 600 });
-    platforms.push({ x: gateX, y: safeFloorY, w: 4000, h: 600 });
-    platforms.push({ x: gateX + 100, y: safeFloorY - 350, w: 1400, h: 20 });
-    ceilings.push({ x: gateX - 600, y: safeRoomTopY, w: 4600, h: 20 });
-    rooms.push({ x: gateX - 600, y: safeRoomTopY, w: 4600, h: safeFloorY - safeRoomTopY + 150, floorY: safeFloorY, type: 'safe', label: 'SECTOR_' + floorNum + '::SAFE', hasDoorLeft: true, hasDoorRight: false });
+    // Safe room is aligned to the exact same floor as the entire sector.
+    platforms.push({x:gateX-600,y:floorY,w:600,h:600},{x:gateX,y:floorY,w:4000,h:600},{x:gateX+100,y:floorY-350,w:1400,h:20});
+    ceilings.push({x:gateX-600,y:roomTopY,w:4600,h:20});
+    rooms.push({x:gateX-600,y:roomTopY,w:4600,h:roomHeight+150,floorY,type:'safe',label:'SECTOR_'+floorNum+'::SAFE',hasDoorLeft:true,hasDoorRight:false});
 
-    tracer.active = false; if (activeMods.has('tracer')) tracer.spawn(); if (activeMods.has('dodge')) dodgeCharges = dodgeMax;
+    tracer.active=false; if(activeMods.has('tracer'))tracer.spawn(); if(activeMods.has('dodge'))dodgeCharges=dodgeMax;
     generateBgLayers();
 }
-
 function calculateRewards() { totalExp += (150 + [...activeMods].reduce((a, id) => a + allMods.find(m => m.id === id).exp, 0)); gateOpen = false; }
 function rerollMods() { openShop(); }
 function openShop() { document.getElementById('dialogue-box').style.display = 'none'; document.getElementById('shop-menu').style.display = 'block'; renderMods(); }
