@@ -710,6 +710,8 @@ class Player {
         if (inElevator) {
             // The player stays at their real world position inside the cabin.
             // Doors close, the camera follows the cabin, and the sector changes after the ride.
+            // Solid cabin side walls keep the player inside the moving elevator.
+            this.x = Math.max(elevatorWorldX + 18, Math.min(this.x, elevatorWorldX + 300 - this.w - 18));
             this.vx = 0; this.vy = 0; this.speed = 0;
             elevatorTimer++; camShake = 0;
             const dy = ELEVATOR_SPEED;
@@ -1016,6 +1018,15 @@ function drawSafeRoom(cx, cy) {
     if (!platforms.includes(elevatorPlatform)) platforms.push(elevatorPlatform);
     const elevX = elevatorWorldX, elevY = elevatorWorldY;
     const cabinW = 300, cabinH = 300;
+    // Visible elevator shaft: the floor is genuinely missing below the cabin.
+    ctx.fillStyle = '#020407';
+    ctx.fillRect(elevX - cx, elevY - cy, cabinW, canvas.height + 180);
+    ctx.fillStyle = '#17232d';
+    ctx.fillRect(elevX - 18 - cx, elevY - cy, 18, canvas.height + 180);
+    ctx.fillRect(elevX + cabinW - cx, elevY - cy, 18, canvas.height + 180);
+    ctx.strokeStyle = '#40515e'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(elevX - 9 - cx, elevY - cy); ctx.lineTo(elevX - 9 - cx, canvas.height + 180 - cy);
+    ctx.moveTo(elevX + cabinW + 9 - cx, elevY - cy); ctx.lineTo(elevX + cabinW + 9 - cx, canvas.height + 180 - cy); ctx.stroke();
     const doorIsOpen = elevatorCalled && !inElevator;
     ctx.fillStyle = '#070b10'; ctx.fillRect(elevX - cx, elevY - cabinH - cy, cabinW, cabinH);
     ctx.fillStyle = '#1b2731'; ctx.fillRect(elevX + 10 - cx, elevY - cabinH + 10 - cy, cabinW - 20, cabinH - 10);
@@ -1115,7 +1126,15 @@ function generateFloor() {
     }
 
     // Safe room is aligned to the exact same floor as the entire sector.
-    platforms.push({x:gateX-600,y:floorY,w:600,h:600},{x:gateX,y:floorY,w:4000,h:600},{x:gateX+100,y:floorY-350,w:1400,h:20});
+    const elevatorShaftX = gateX + 1200;
+    const elevatorShaftW = 300;
+    // Leave a real opening in the safe-room floor beneath the elevator.
+    platforms.push(
+        {x:gateX-600,y:floorY,w:600,h:600},
+        {x:gateX,y:floorY,w:elevatorShaftX-gateX,h:600},
+        {x:elevatorShaftX+elevatorShaftW,y:floorY,w:gateX+4000-(elevatorShaftX+elevatorShaftW),h:600},
+        {x:gateX+100,y:floorY-350,w:1400,h:20}
+    );
     ceilings.push({x:gateX-600,y:roomTopY,w:4600,h:20});
     rooms.push({x:gateX-600,y:roomTopY,w:4600,h:roomHeight+150,floorY,type:'safe',label:'SECTOR_'+floorNum+'::SAFE',hasDoorLeft:true,hasDoorRight:false});
 
