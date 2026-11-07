@@ -996,12 +996,19 @@ function generateFloor() {
         curX += roomW;
     }
 
-    // Safe room remains the end-of-sector destination.
-    platforms.push({ x: gateX - 600, y: floorY, w: 600, h: 600 });
-    platforms.push({ x: gateX, y: floorY, w: 4000, h: 600 });
-    platforms.push({ x: gateX + 100, y: floorY - 350, w: 1400, h: 20 });
-    ceilings.push({ x: gateX - 600, y: Math.max(20, floorY - 570), w: 4600, h: 20 });
-    rooms.push({ x: gateX - 600, y: Math.max(20, floorY - 570), w: 4600, h: floorY - Math.max(20, floorY - 570) + 150, floorY, type: 'safe', label: 'SECTOR_' + floorNum + '::SAFE', hasDoorLeft: true, hasDoorRight: false });
+    // Safe room: keep its floor near the visible play area even after
+    // several descending stairwells. Connect the last generated floor to it.
+    const safeFloorY = Math.min(floorY, canvas.height - 90);
+    const safeRoomTopY = Math.max(20, safeFloorY - 570);
+    if (safeFloorY !== floorY) {
+        platforms.push({ x: gateX - 1200, y: floorY, w: 1200, h: 600 });
+        platforms.push({ x: gateX - 1200, y: safeFloorY, w: 1200, h: 600 });
+    }
+    platforms.push({ x: gateX - 600, y: safeFloorY, w: 600, h: 600 });
+    platforms.push({ x: gateX, y: safeFloorY, w: 4000, h: 600 });
+    platforms.push({ x: gateX + 100, y: safeFloorY - 350, w: 1400, h: 20 });
+    ceilings.push({ x: gateX - 600, y: safeRoomTopY, w: 4600, h: 20 });
+    rooms.push({ x: gateX - 600, y: safeRoomTopY, w: 4600, h: safeFloorY - safeRoomTopY + 150, floorY: safeFloorY, type: 'safe', label: 'SECTOR_' + floorNum + '::SAFE', hasDoorLeft: true, hasDoorRight: false });
 
     tracer.active = false; if (activeMods.has('tracer')) tracer.spawn(); if (activeMods.has('dodge')) dodgeCharges = dodgeMax;
     generateBgLayers();
