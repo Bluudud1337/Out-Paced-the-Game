@@ -1037,13 +1037,13 @@ function drawSafeRoom(cx, cy) {
         ctx.fillRect(elevX + cabinW - 34 - cx, elevY - cabinH + 40 - cy, 16, cabinH - 52);
     }
     // Call / floor control panel.
-    const panelX = elevX + cabinW + 25, panelY = elevY - 115;
+    const panelX = elevX - 80, panelY = elevY - 115;
     ctx.fillStyle = '#101820'; ctx.fillRect(panelX - cx, panelY - cy, 54, 90);
     ctx.strokeStyle = elevatorCalled ? '#00d4d8' : '#65737e'; ctx.lineWidth = 2; ctx.strokeRect(panelX - cx, panelY - cy, 54, 90);
     ctx.fillStyle = elevatorCalled ? '#00ff9d' : '#ffb347'; ctx.beginPath(); ctx.arc(panelX + 27 - cx, panelY + 28 - cy, 9, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#aab8c2'; ctx.font = '10px Consolas'; ctx.fillText('ELEVATOR', panelX + 4 - cx, panelY + 58 - cy);
     ctx.fillText(elevatorCalled ? 'READY' : 'CALL', panelX + 10 - cx, panelY + 73 - cy);
-    if (!elevatorCalled && !inElevator && Math.abs(p.x - panelX) < 90 && Math.abs(p.y - panelY) < 100) {
+    if (!elevatorCalled && !inElevator && Math.abs((p.x + p.w / 2) - (panelX + 27)) < 100 && Math.abs((p.y + p.h / 2) - (panelY + 45)) < 110) {
         ctx.fillStyle = '#fff'; ctx.font = '14px Consolas'; ctx.fillText('[E] CALL ELEVATOR', panelX - cx - 30, panelY - cy - 12);
         if (keys.action) { elevatorCalled = true; elevatorTravelOffset = 0; elevatorWorldY = baseY; if (elevatorPlatform) elevatorPlatform.y = baseY; camShake = 5; keys.action = false; }
     }
