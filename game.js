@@ -560,16 +560,16 @@ function drawLabRoom(room, cx, cy) {
     ctx.fillStyle = '#090d11';
     if (room.hasDoorLeft) ctx.fillRect(sx, doorY - cy, wall + 4, doorH);
     if (room.hasDoorRight) ctx.fillRect(sx + room.w - wall - 4, doorY - cy, wall + 4, doorH);
-    function frameDoor(edgeX) {
-        const dx = edgeX - cx, dy = doorY - cy;
+    function frameDoor(edgeX, doorwayFloorY) {
+        const dx = edgeX - cx, dy = doorwayFloorY - doorH - cy;
         ctx.fillStyle = '#aeb7c1';
         ctx.fillRect(dx - 4, dy - 5, doorW + 8, 7);
         ctx.fillRect(dx - 4, dy, 6, doorH);
         ctx.fillRect(dx + doorW - 2, dy, 6, doorH);
-        ctx.fillStyle = accent; ctx.fillRect(dx - 4, floorY - cy - 3, doorW + 8, 4);
+        ctx.fillStyle = accent; ctx.fillRect(dx - 4, doorwayFloorY - cy - 3, doorW + 8, 4);
     }
-    if (room.hasDoorLeft) frameDoor(room.x + wall);
-    if (room.hasDoorRight) frameDoor(room.x + room.w - wall - doorW);
+    if (room.hasDoorLeft) frameDoor(room.x + wall, floorY);
+    if (room.hasDoorRight) frameDoor(room.x + room.w - wall - doorW, room.stairsEndY || floorY);
 
     // Main floor / landing
     ctx.fillStyle = '#303943';
@@ -627,7 +627,7 @@ function drawLabRoom(room, cx, cy) {
         ctx.beginPath(); ctx.moveTo(sx + 20, floorY - cy - 35); ctx.lineTo(sx + room.w - 20, floorY - cy - 35); ctx.stroke();
     } else if (room.type === 'hazard') {
         ctx.fillStyle = 'rgba(220,70,60,0.12)'; ctx.fillRect(sx + 80, floorY - cy - 300, room.w - 160, 240);
-        ctx.fillStyle = '#d35c54'; ctx.font = 'bold 13px Consolas'; ctx.fillText('⚠ CONTAINMENT', sx + 100, floorY - cy - 330);
+        ctx.fillStyle = '#d35c54'; ctx.font = 'bold 13px Consolas'; ctx.fillText('CONTAINMENT / CAUTION', sx + 100, floorY - cy - 330);
     }
 
     if (room.label) {
@@ -765,7 +765,7 @@ function generateFloor() {
         let exitFloorY = entryFloorY;
         const roomTopY = Math.max(20, entryFloorY - 570);
         const room = {
-            x: curX, y: roomTopY, w: roomW, h: entryFloorY - roomTopY + 150,
+            x: curX, y: roomTopY, w: roomW, h: exitFloorY - roomTopY + 150,
             type, label: blueprint.label + '_' + roomCount,
             floorY: entryFloorY, hasDoorLeft: true, hasDoorRight: true,
             roomNumber: roomCount
