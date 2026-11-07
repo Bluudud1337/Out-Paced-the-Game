@@ -380,7 +380,7 @@ class Bull {
     constructor() { this.active=false; this.x=0; this.speed=0; this.spawnTimer=900; this.roar=0; this.segs=[]; }
     spawn() {
         if(this.active||inSafeRoom||!activeMods.has('hallwayRenovation')) return;
-        this.active=true; this.x=Math.max(0,p.x-1500); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=120; this.segs=[];
+        this.active=true; this.x=Math.max(0,p.x-3200); this.speed=13+Math.min(floorNum,8)*0.8; this.roar=120; this.segs=[];
     }
     update() {
         if(!activeMods.has('hallwayRenovation')||inSafeRoom) { this.active=false; this.segs=[]; return; }
@@ -400,7 +400,7 @@ class Bull {
         for(let i=vents.length-1;i>=0;i--) if(vents[i].x+vents[i].w>this.x-80&&vents[i].x<this.x+this.width()) vents.splice(i,1);
         for(let i=decals.length-1;i>=0;i--) if(decals[i].x+decals[i].w>this.x-80&&decals[i].x<this.x+this.width()) decals.splice(i,1);
 
-        if(!isDodging && Math.abs(this.x+this.width()*0.5-(p.x+p.w/2))<this.width()*0.48 && !this.isPlayerSheltered()) {
+        // Only kill when Bull's head reaches the player, not when the long body first appears.\n        if(!isDodging && Math.abs(this.x+180-(p.x+p.w/2))<Math.max(100,p.w*0.8) && !this.isPlayerSheltered()) {
             if(activeMods.has('dodge')&&tryDodge()) {} else die('BULL_OVERRUN');
         }
         if(this.x>p.x+canvas.width+1200) this.active=false;
