@@ -865,9 +865,9 @@ function generateFloor() {
     ceilings.push({x:-500,y:roomTopY,w:1500,h:20});
     rooms.push({x:-500,y:roomTopY,w:1500,h:roomHeight,floorY,type:'start',label:'SECTOR_'+floorNum+'::ENTRY',hasDoorLeft:false,hasDoorRight:true});
 
-    while(curX<gateX-2200) {
+    while(curX<gateX-600) {
         const type=roomTypes[roomIndex%roomTypes.length];
-        const w=Math.min(roomW,gateX-2200-curX);
+        const w=Math.min(roomW,gateX-600-curX);
         const room={x:curX,y:roomTopY,w,h:roomHeight,type,label:type.toUpperCase()+'_BLOCK_'+(roomIndex+1),floorY,hasDoorLeft:true,hasDoorRight:true,roomNumber:roomIndex+1};
         // One continuous ground level across every room.
         platforms.push({x:curX,y:floorY,w,h:600});
