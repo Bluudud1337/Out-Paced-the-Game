@@ -528,66 +528,110 @@ function drawLabLocker(l, cx, cy) {
 function drawLabLaser(l, cx, cy) { let ssx = l.sx - cx, ssy = l.sy - cy; ctx.fillStyle = l.active ? '#1a0505' : '#0a1a0a'; ctx.fillRect(ssx, ssy, 24, 24); ctx.strokeStyle = l.active ? '#f00' : '#0f0'; ctx.lineWidth = 2; ctx.strokeRect(ssx, ssy, 24, 24); ctx.fillStyle = l.active ? '#f00' : '#0f0'; ctx.fillRect(ssx + 6, ssy + 6, 12, 12); if (l.active) { let lsx = l.x - cx, lsy = l.y - cy; ctx.fillStyle = "rgba(255, 0, 0, 0.15)"; ctx.fillRect(lsx - 4, lsy, l.w + 8, l.h); ctx.fillStyle = "rgba(255, 0, 0, 0.8)"; ctx.fillRect(lsx, lsy, l.w, l.h); } }
 function drawLabDecal(d, cx, cy) { ctx.fillStyle = d.c; ctx.fillRect(d.x - camX * 0.5, d.y - camY * 0.5, d.w, d.h); }
 function drawLabRoom(room, cx, cy) {
-    // Simple side-view rooms with clean Roblox-style doors.
+    // Blueprint-based room rendering. Each room type gets its own visual identity.
     const sx = room.x - cx, sy = room.y - cy;
-    const wall = 18, floorY = room.floorY ?? (room.y + room.h - 150);
-    const accent = room.type === 'hazard' ? '#b84b4b' : '#7b8794';
+    const wall = 24, floorY = room.floorY ?? (room.y + room.h - 150);
+    const palette = {
+        start: ['#111820', '#273440', '#8fa6b8'],
+        hallway: ['#141a20', '#303b46', '#91a4b4'],
+        storage: ['#191b1e', '#3a3b3d', '#c5a56a'],
+        lab: ['#101c20', '#253c43', '#58c8d5'],
+        hazard: ['#211719', '#4a292d', '#e16b61'],
+        stairs: ['#15191e', '#343b44', '#aab4bf'],
+        catwalk: ['#111a20', '#263b46', '#65b7c8'],
+        hideout: ['#171b1c', '#303b35', '#8db49b'],
+        chamber: ['#151923', '#343b50', '#9a9fe8'],
+        safe: ['#101b1c', '#253d3d', '#00ffea']
+    }[room.type] || ['#111820', '#252d36', '#7b8794'];
+    const [base, wallColor, accent] = palette;
 
-    // Room shell. The side walls stop above the doorway, matching the
-    // physical collision walls generated in generateFloor().
-    ctx.fillStyle = '#111820'; ctx.fillRect(sx, sy, room.w, room.h);
-    ctx.fillStyle = '#252d36';
-    ctx.fillRect(sx, sy, room.w, 22);
-    const doorwayHeight = 190;
-    const wallBottom = floorY - doorwayHeight;
-    ctx.fillRect(sx, sy + 22, wall, Math.max(0, wallBottom - (room.y + 22)) );
-    ctx.fillRect(sx + room.w - wall, sy + 22, wall, Math.max(0, wallBottom - (room.y + 22)) );
+    ctx.fillStyle = base; ctx.fillRect(sx, sy, room.w, room.h);
+    ctx.fillStyle = wallColor; ctx.fillRect(sx, sy, room.w, 24);
+    ctx.fillStyle = '#0a0e12'; ctx.fillRect(sx, sy + 24, room.w, Math.max(0, floorY - sy - cy - 24));
+    // Ceiling strips and structural ribs.
+    ctx.fillStyle = accent; ctx.globalAlpha = 0.35; ctx.fillRect(sx, sy, room.w, 3); ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(220,235,245,0.08)'; ctx.lineWidth = 1;
+    for (let x = 120; x < room.w; x += room.type === 'storage' ? 180 : 260) {
+        ctx.beginPath(); ctx.moveTo(sx + x, sy + 24); ctx.lineTo(sx + x, floorY - cy); ctx.stroke();
+    }
+
+    // Door openings are clear from floor to lintel. Frames line up at both ends.
+    const doorW = 100, doorH = 190, doorY = floorY - doorH;
+    ctx.fillStyle = '#090d11';
+    if (room.hasDoorLeft) ctx.fillRect(sx, doorY - cy, wall + 4, doorH);
+    if (room.hasDoorRight) ctx.fillRect(sx + room.w - wall - 4, doorY - cy, wall + 4, doorH);
+    function frameDoor(edgeX) {
+        const dx = edgeX - cx, dy = doorY - cy;
+        ctx.fillStyle = '#aeb7c1';
+        ctx.fillRect(dx - 4, dy - 5, doorW + 8, 7);
+        ctx.fillRect(dx - 4, dy, 6, doorH);
+        ctx.fillRect(dx + doorW - 2, dy, 6, doorH);
+        ctx.fillStyle = accent; ctx.fillRect(dx - 4, floorY - cy - 3, doorW + 8, 4);
+    }
+    if (room.hasDoorLeft) frameDoor(room.x + wall);
+    if (room.hasDoorRight) frameDoor(room.x + room.w - wall - doorW);
+
+    // Main floor / landing
     ctx.fillStyle = '#303943';
     if (room.type === 'stairs' && room.stairsEndY) {
-        const steps = 6 + Math.floor((room.w - 900) / 150);
+        const steps = room.stairSteps || 8;
         const stepW = (room.w - 180) / steps;
         const descent = room.stairsEndY - floorY;
         ctx.fillRect(sx, floorY - cy, 90, 150);
         for (let st = 0; st < steps; st++) {
             const stepX = sx + 90 + st * stepW;
             const stepY = floorY + ((st + 1) / steps) * descent - cy;
-            ctx.fillRect(stepX, stepY, stepW + 2, 150);
-            ctx.fillStyle = '#68727d'; ctx.fillRect(stepX, stepY, stepW + 2, 5);
-            ctx.fillStyle = '#303943';
+            ctx.fillStyle = '#303943'; ctx.fillRect(stepX, stepY, stepW + 2, 600);
+            ctx.fillStyle = '#8a969f'; ctx.fillRect(stepX, stepY, stepW + 2, 5);
+            ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(stepX, stepY + 8, stepW + 2, 2);
         }
-        ctx.fillRect(sx + room.w - 90, room.stairsEndY - cy, 90, 150);
-        ctx.fillStyle = '#68727d'; ctx.fillRect(sx + room.w - 90, room.stairsEndY - cy, 90, 5);
+        ctx.fillStyle = '#303943'; ctx.fillRect(sx + room.w - 90, room.stairsEndY - cy, 90, 600);
+        ctx.fillStyle = '#8a969f'; ctx.fillRect(sx + room.w - 90, room.stairsEndY - cy, 90, 5);
+        ctx.fillStyle = accent; ctx.globalAlpha = 0.5;
+        ctx.fillRect(sx + room.w / 2 - 2, sy + 50, 4, 80); ctx.globalAlpha = 1;
     } else {
         ctx.fillRect(sx, floorY - cy, room.w, 150);
-        ctx.fillStyle = '#68727d'; ctx.fillRect(sx, floorY - cy, room.w, 5);
+        ctx.fillStyle = accent; ctx.fillRect(sx, floorY - cy, room.w, 4);
     }
 
-    // Sparse wall seams, just enough to show room structure.
-    ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
-    for (let x = 220; x < room.w; x += 320) {
-        ctx.beginPath(); ctx.moveTo(sx + x, sy + 22); ctx.lineTo(sx + x, floorY - cy); ctx.stroke();
+    // Room-specific fixtures.
+    if (room.type === 'storage') {
+        for (let i = 0; i < 3; i++) {
+            const rackX = sx + 150 + i * Math.max(180, (room.w - 300) / 3);
+            ctx.fillStyle = '#51483b'; ctx.fillRect(rackX, floorY - cy - 115, 130, 8);
+            ctx.fillRect(rackX, floorY - cy - 230, 130, 8);
+            ctx.fillStyle = '#75664f'; ctx.fillRect(rackX + 4, floorY - cy - 110, 5, 110);
+            ctx.fillRect(rackX + 121, floorY - cy - 110, 5, 110);
+            for (let box = 0; box < 3; box++) {
+                ctx.fillStyle = ['#71604b', '#59656a', '#786b5a'][box];
+                ctx.fillRect(rackX + 12 + box * 38, floorY - cy - 145, 30, 27);
+            }
+        }
+    } else if (room.type === 'lab' || room.type === 'chamber') {
+        ctx.fillStyle = '#202b32';
+        ctx.fillRect(sx + 100, floorY - cy - 70, 140, 70);
+        ctx.fillRect(sx + room.w - 250, floorY - cy - 70, 140, 70);
+        ctx.fillStyle = accent; ctx.globalAlpha = 0.65;
+        ctx.fillRect(sx + 110, floorY - cy - 60, 120, 3);
+        ctx.fillRect(sx + room.w - 240, floorY - cy - 60, 120, 3);
+        ctx.globalAlpha = 1;
+    } else if (room.type === 'hideout') {
+        ctx.fillStyle = '#080d0b'; ctx.fillRect(sx + 170, floorY - cy - 125, room.w - 340, 50);
+        ctx.fillStyle = '#43574a'; ctx.fillRect(sx + 170, floorY - cy - 125, room.w - 340, 4);
+        ctx.fillStyle = 'rgba(130,180,150,0.12)'; ctx.fillRect(sx + 170, floorY - cy - 120, room.w - 340, 45);
+    } else if (room.type === 'catwalk') {
+        ctx.strokeStyle = 'rgba(150,190,205,0.35)'; ctx.lineWidth = 3;
+        for (let x = 80; x < room.w; x += 80) {
+            ctx.beginPath(); ctx.moveTo(sx + x, floorY - cy); ctx.lineTo(sx + x, floorY - cy - 35); ctx.stroke();
+        }
+        ctx.beginPath(); ctx.moveTo(sx + 20, floorY - cy - 35); ctx.lineTo(sx + room.w - 20, floorY - cy - 35); ctx.stroke();
+    } else if (room.type === 'hazard') {
+        ctx.fillStyle = 'rgba(220,70,60,0.12)'; ctx.fillRect(sx + 80, floorY - cy - 300, room.w - 160, 240);
+        ctx.fillStyle = '#d35c54'; ctx.font = 'bold 13px Consolas'; ctx.fillText('⚠ CONTAINMENT', sx + 100, floorY - cy - 330);
     }
-
-    // Plain framed door, like a simple 2D Roblox building door.
-    const doorW = 86, doorH = 150, doorY = floorY - doorH;
-    function drawDoor(edgeX) {
-        const dx = edgeX - cx, dy = doorY - cy;
-        // Open doorway: frame and lintel only, no fake solid door panel.
-        ctx.fillStyle = '#aeb7c1';
-        ctx.fillRect(dx - 5, dy - 5, doorW + 10, 7);
-        ctx.fillRect(dx - 5, dy, 7, doorH);
-        ctx.fillRect(dx + doorW - 2, dy, 7, doorH);
-        ctx.fillStyle = '#8794a1';
-        ctx.fillRect(dx + 7, dy + 7, 3, doorH - 7);
-        ctx.fillRect(dx + doorW - 10, dy + 7, 3, doorH - 7);
-        ctx.fillStyle = accent; ctx.fillRect(dx - 5, floorY - cy - 3, doorW + 10, 4);
-    }
-    if (room.hasDoorLeft) drawDoor(room.x + wall);
-    if (room.hasDoorRight) drawDoor(room.x + room.w - wall - doorW);
 
     if (room.label) {
-        ctx.fillStyle = '#aab4bf'; ctx.font = '12px Consolas';
-        ctx.fillText(room.label, sx + 28, sy + 42);
+        ctx.fillStyle = accent; ctx.font = '12px Consolas'; ctx.fillText(room.label, sx + 28, sy + 42);
     }
 }
 
