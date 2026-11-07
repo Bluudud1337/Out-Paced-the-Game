@@ -390,8 +390,6 @@ class Bull {
             return;
         }
         this.x+=this.speed; this.roar=Math.max(0,this.roar-1);
-        this.segs.unshift({x:this.x,y:canvas.height-150,phase:frameCount});
-        if(this.segs.length>24) this.segs.pop();
 
         // Bull can wreck props, but platforms are sacred: they are the player's shelter.
         for(let i=lockers.length-1;i>=0;i--) if(lockers[i].x+lockers[i].w>this.x-100&&lockers[i].x<this.x+this.width()) {
@@ -414,64 +412,64 @@ class Bull {
     draw(cx,cy) {
         if(!this.active) return;
         const x=this.x-cx, floor=canvas.height-150-cy, h=canvas.height-90;
-        const pulse=0.5+Math.sin(frameCount*0.13)*0.5;
+        const pulse=0.5+Math.sin(frameCount*0.08)*0.5;
         ctx.save(); ctx.translate(x,floor);
 
-        // Bull's body uses Power Down's segmented, distorted silhouette, scaled up to corridor height.
-        // Each segment is a huge shadow mass with jagged violet energy seams.
-        for(let i=18;i>=0;i--) {
-            const bx=-i*82, sway=Math.sin(frameCount*0.09-i*0.65)*18;
-            const by=-h*0.5+sway, r=145-i*2.5;
-            ctx.shadowColor='#a000ff'; ctx.shadowBlur=28*pulse;
-            ctx.fillStyle=i%2?'#100018':'#21002e';
-            ctx.strokeStyle='#d000ff'; ctx.lineWidth=3+pulse*2;
+        // Rounded, heavy industrial segments. Minimal glow/shadow keeps this cheap to render.
+        for(let i=13;i>=0;i--) {
+            const bx=-i*105;
+            const sway=Math.sin(frameCount*0.045-i*0.48)*9;
+            const by=-h*0.5+sway;
+            const rx=165-i*3, ry=h*0.47;
+            ctx.fillStyle=i%2?'#292d30':'#3b4043';
+            ctx.strokeStyle=i%2?'#555c60':'#686f73';
+            ctx.lineWidth=3;
             ctx.beginPath();
-            ctx.moveTo(bx-r,by-h*0.48);
-            ctx.lineTo(bx-r*0.72,by-h*0.18);
-            ctx.lineTo(bx-r*1.08,by+h*0.05);
-            ctx.lineTo(bx-r*0.55,by+h*0.43);
-            ctx.lineTo(bx+r*0.4,by+h*0.48);
-            ctx.lineTo(bx+r,by+h*0.12);
-            ctx.lineTo(bx+r*0.78,by-h*0.3);
-            ctx.closePath(); ctx.fill(); ctx.stroke();
-            ctx.shadowBlur=0;
-            ctx.strokeStyle='rgba(255,35,240,0.75)'; ctx.lineWidth=4;
-            ctx.beginPath(); ctx.moveTo(bx-r*0.45,by-h*0.36); ctx.lineTo(bx+r*0.25,by+h*0.3); ctx.stroke();
-            // Power Down-like jagged energy tendrils.
-            for(let t=0;t<3;t++) {
-                const yy=by-h*0.25+t*h*0.22;
-                ctx.strokeStyle=`rgba(230,35,255,${0.25+pulse*0.55})`; ctx.lineWidth=2+pulse*2;
-                ctx.beginPath(); ctx.moveTo(bx,yy);
-                for(let k=1;k<=4;k++) ctx.lineTo(bx+k*24,yy+Math.sin(frameCount*0.3+i+t+k)*22);
-                ctx.stroke();
-            }
+            ctx.ellipse(bx,by,rx,ry,Math.sin(i*0.3)*0.025,0,Math.PI*2);
+            ctx.fill(); ctx.stroke();
+
+            // A single muted seam gives the segments a worn, mechanical look.
+            ctx.strokeStyle='rgba(145,153,157,0.42)';
+            ctx.lineWidth=5;
+            ctx.beginPath();
+            ctx.moveTo(bx-rx*0.45,by-ry*0.55);
+            ctx.quadraticCurveTo(bx+rx*0.1,by, bx+rx*0.45,by+ry*0.55);
+            ctx.stroke();
         }
 
-        // Oversized, featureless head. No eyes, sockets, or eye glow.
-        ctx.shadowColor='#e000ff'; ctx.shadowBlur=45*pulse;
-        ctx.fillStyle='#08000d'; ctx.strokeStyle='#d900ff'; ctx.lineWidth=7;
+        // Broad, blunt industrial head with no eyes.
+        ctx.fillStyle='#171a1c';
+        ctx.strokeStyle='#737b7f';
+        ctx.lineWidth=6;
         ctx.beginPath();
-        ctx.moveTo(90,-h*0.98); ctx.lineTo(310,-h*0.78);
-        ctx.lineTo(365,-h*0.48); ctx.lineTo(285,-h*0.12);
-        ctx.lineTo(150,-h*0.02); ctx.lineTo(35,-h*0.28);
-        ctx.lineTo(-20,-h*0.62); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.shadowBlur=0;
+        ctx.moveTo(45,-h*0.92);
+        ctx.quadraticCurveTo(180,-h*1.02,315,-h*0.78);
+        ctx.quadraticCurveTo(390,-h*0.56,350,-h*0.31);
+        ctx.quadraticCurveTo(300,-h*0.06,165,-h*0.04);
+        ctx.quadraticCurveTo(55,-h*0.16,5,-h*0.48);
+        ctx.quadraticCurveTo(-25,-h*0.73,45,-h*0.92);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // A deep, jagged mouth-like void instead of eyes.
-        ctx.fillStyle='#000'; ctx.strokeStyle='#8d00c9'; ctx.lineWidth=4;
-        ctx.beginPath(); ctx.moveTo(110,-h*0.43); ctx.lineTo(300,-h*0.36);
-        ctx.lineTo(235,-h*0.22); ctx.lineTo(145,-h*0.24); ctx.closePath(); ctx.fill(); ctx.stroke();
-        ctx.fillStyle='#c600ff';
-        for(let i=0;i<7;i++){ctx.beginPath();ctx.moveTo(125+i*22,-h*0.39);ctx.lineTo(139+i*22,-h*0.29);ctx.lineTo(148+i*22,-h*0.39);ctx.fill();}
+        // Dark vent-like maw, metallic rather than glowing.
+        ctx.fillStyle='#080a0b';
+        ctx.strokeStyle='#4b5154';
+        ctx.lineWidth=4;
+        ctx.beginPath();
+        ctx.moveTo(105,-h*0.43);
+        ctx.quadraticCurveTo(205,-h*0.49,300,-h*0.38);
+        ctx.lineTo(245,-h*0.23);
+        ctx.quadraticCurveTo(165,-h*0.20,125,-h*0.27);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
 
-        // Distortion and dust obscure the edges, making the creature feel enormous.
-        const aura=ctx.createRadialGradient(120,-h*0.5,20,120,-h*0.5,620);
-        aura.addColorStop(0,'rgba(155,0,255,0.22)'); aura.addColorStop(1,'rgba(20,0,35,0)');
-        ctx.fillStyle=aura; ctx.fillRect(-500,-h,1200,h*1.2);
+        // Sparse dust only; avoid per-frame particle bursts.
         ctx.restore();
-
-        if(frameCount%3===0) spawnParticles(this.x+Math.random()*this.width(),canvas.height-150,'#c600ff',2,8,18);
-        if(this.roar>0){ctx.save();ctx.fillStyle='rgba(245,70,255,0.95)';ctx.font='bold 22px Consolas';ctx.textAlign='center';ctx.fillText('BULL // ENTITY APPROACHING',canvas.width/2,80);ctx.textAlign='left';ctx.restore();}
+        if(frameCount%12===0) spawnParticles(this.x+this.width()*0.45,canvas.height-150,'#737b7f',1,3,12);
+        if(this.roar>0){
+            ctx.save(); ctx.fillStyle='rgba(180,188,192,0.9)';
+            ctx.font='bold 22px Consolas'; ctx.textAlign='center';
+            ctx.fillText('BULL // ENTITY APPROACHING',canvas.width/2,80);
+            ctx.textAlign='left'; ctx.restore();
+        }
     }
 }
 
