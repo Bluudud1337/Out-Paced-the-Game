@@ -721,11 +721,22 @@ class Player {
             return;
         }
         // Enter only after the runner has walked fully through the doorway.
+        // Enter when the player's feet are on the cabin floor and their body
+        // overlaps the open doorway. Use the full doorway width, not a narrow
+        // center strip that was impossible to reach reliably.
         if (inSafeRoom && elevatorCalled && !inElevator &&
-            this.x + this.w > elevatorWorldX + 70 && this.x < elevatorWorldX + 230 &&
-            this.y + this.h >= elevatorWorldY - 8 && this.y + this.h <= elevatorWorldY + 20) {
-            inElevator = true; elevatorCalled = false; elevatorTimer = 0;
-            this.hiding = false; inVentSystem = false;
+            this.x + this.w > elevatorWorldX + 12 &&
+            this.x < elevatorWorldX + 288 &&
+            Math.abs((this.y + this.h) - elevatorWorldY) <= 24 &&
+            this.vy === 0) {
+            inElevator = true;
+            elevatorCalled = false;
+            elevatorTimer = 0;
+            this.hiding = false;
+            inVentSystem = false;
+            this.vx = 0;
+            this.vy = 0;
+            this.grounded = true;
         }
     }
     draw(cx, cy) {
