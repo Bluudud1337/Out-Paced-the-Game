@@ -520,7 +520,6 @@ class PowerDown {
         }
     }
 }
-}
 
 // --- PLAYER ---
 class Player {
