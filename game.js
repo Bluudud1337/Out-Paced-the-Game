@@ -15,6 +15,7 @@ let safeRoomDoorTimer = 0;
 let carryingPlug = false;
 let inElevator = false;
 let elevatorTimer = 0;
+let elevatorWorldX = 0, elevatorWorldY = 0;
 const ELEVATOR_DURATION = 300;
 let platforms = [], hazards = [], lockers = [], decals = [], lasers = [];
 let ceilings = [], vents = [];
@@ -703,8 +704,23 @@ class Player {
         lasers.forEach(l => { if (l.active && this.x + this.w > l.x && this.x < l.x + l.w && this.y + this.h > l.y && this.y < l.y + l.h) { if (isDodging) { } else if (activeMods.has('dodge') && tryDodge()) { } else die("LASER_EVAPORATION"); } if (keys.action && Math.abs(this.x - l.sx) < 60 && Math.abs(this.y - l.sy) < 60) { l.active = false; keys.action = false; } });
         if (this.x > gateX && !inSafeRoom) { inSafeRoom = true; safeRoomDoorSlammed = false; safeRoomDoorTimer = 0; calculateRewards(); }
         if (inSafeRoom && !safeRoomDoorSlammed) { safeRoomDoorTimer++; if (safeRoomDoorTimer > 30) { safeRoomDoorSlammed = true; camShake = 25; spawnParticles(gateX + 100, canvas.height - 300, "#00ffea", 30, 10, 20); } }
-        if (inElevator) { elevatorTimer++; camShake = 3; if (elevatorTimer >= ELEVATOR_DURATION) { inElevator = false; elevatorTimer = 0; nextFloor(); } }
-        if (inSafeRoom && gateOpen && this.x > gateX + 1600 && !inElevator) { inElevator = true; elevatorTimer = 0; }
+        if (inElevator) {
+            // Player is physically inside the cabin while it travels. Freeze movement,
+            // keep them centered in the cabin, and transition only when the ride ends.
+            this.vx = 0; this.vy = 0; this.speed = 0;
+            this.x = elevatorWorldX + 155;
+            this.y = elevatorWorldY - this.h;
+            elevatorTimer++; camShake = 1;
+            if (elevatorTimer >= ELEVATOR_DURATION) { inElevator = false; elevatorTimer = 0; nextFloor(); }
+            return;
+        }
+        // Enter the elevator by walking through its open doorway after calling it.
+        if (inSafeRoom && gateOpen && !inElevator &&
+            this.x + this.w > elevatorWorldX + 105 && this.x < elevatorWorldX + 350 &&
+            this.y + this.h >= elevatorWorldY - 12 && this.y + this.h <= elevatorWorldY + 40) {
+            inElevator = true; elevatorTimer = 0; this.x = elevatorWorldX + 155; this.y = elevatorWorldY - this.h;
+            this.vx = 0; this.vy = 0; this.hiding = false; inVentSystem = false;
+        }
     }
     draw(cx, cy) {
         ghostTrail.forEach(g => { ctx.globalAlpha = g.alpha; let ox = (this.w - g.vw) / 2, oy = (this.h - g.vh); ctx.fillStyle = "#2ecc71"; ctx.fillRect(g.x - cx + ox, g.y - cy + oy, g.vw, g.vh); ctx.fillStyle = "#000"; ctx.fillRect(g.x - cx + ox + 8, g.y - cy + oy + 4, 4, 10); ctx.fillRect(g.x - cx + ox + 24, g.y - cy + oy + 4, 4, 10); }); ctx.globalAlpha = 1;
@@ -974,12 +990,46 @@ function drawSafeRoom(cx, cy) {
     for (let ci = 0; ci < 3; ci++) { let crateX = gateX + 1400 + ci * 80, crateY = baseY - 50; ctx.fillStyle = '#0c1420'; ctx.fillRect(crateX - cx, crateY - cy, 60, 50); ctx.strokeStyle = 'rgba(0, 255, 234, 0.15)'; ctx.lineWidth = 1; ctx.strokeRect(crateX - cx, crateY - cy, 60, 50); ctx.fillStyle = 'rgba(0, 255, 234, 0.1)'; ctx.font = '7px Consolas'; ctx.fillText('SUPPLY', crateX + 5 - cx, crateY + 14 - cy); }
     // Hearty interaction
     if (Math.abs(p.x - heartyX) < 100 && Math.abs(p.y - counterY) < 100) { ctx.fillStyle = '#fff'; ctx.font = '14px Consolas'; ctx.fillText('[E] TALK', heartyX - cx - 20, heartyY - cy - 30 + bounce); if (keys.action) { document.getElementById('dialogue-box').style.display = 'block'; shopChatTimer = 60; keys.action = false; } }
-    // Elevator button
-    let elevX = gateX + 1200, elevY = baseY - 60;
-    ctx.fillStyle = '#0c1420'; ctx.fillRect(elevX - cx, elevY - cy, 60, 60);
-    ctx.strokeStyle = gateOpen ? '#0f0' : 'rgba(0, 255, 234, 0.3)'; ctx.lineWidth = 2; ctx.strokeRect(elevX - cx, elevY - cy, 60, 60);
-    ctx.fillStyle = gateOpen ? '#0f0' : '#0ff'; ctx.fillRect(elevX + 20 - cx, elevY + 10 - cy, 20, 20);
-    if (!gateOpen && Math.abs(p.x - elevX) < 80 && Math.abs(p.y - elevY) < 80) { ctx.fillStyle = '#fff'; ctx.font = '14px Consolas'; ctx.fillText("[E] CALL", elevX - cx - 5, elevY - cy - 10); if (keys.action) { gateOpen = true; camShake = 10; keys.action = false; } }
+    // Actual walk-in elevator cabin. The call button opens the door; the player
+    // must walk into the cabin to begin sector transit.
+    elevatorWorldX = gateX + 1200;
+    elevatorWorldY = baseY - 60;
+    const elevX = elevatorWorldX, elevY = elevatorWorldY;
+    const cabinW = 300, cabinH = 300;
+    const doorIsOpen = gateOpen && !inElevator;
+    ctx.fillStyle = '#070b10'; ctx.fillRect(elevX - cx, elevY - cabinH - cy, cabinW, cabinH);
+    ctx.fillStyle = '#1b2731'; ctx.fillRect(elevX + 10 - cx, elevY - cabinH + 10 - cy, cabinW - 20, cabinH - 10);
+    ctx.fillStyle = '#35434e'; ctx.fillRect(elevX + 18 - cx, elevY - cabinH + 18 - cy, cabinW - 36, 8);
+    ctx.fillStyle = '#0a1118'; ctx.fillRect(elevX + 24 - cx, elevY - cabinH + 30 - cy, cabinW - 48, cabinH - 48);
+    // Cabin floor sits flush with the safe-room floor.
+    ctx.fillStyle = '#596873'; ctx.fillRect(elevX - cx, elevY - cy, cabinW, 12);
+    ctx.fillStyle = '#26343e'; ctx.fillRect(elevX + 8 - cx, elevY + 12 - cy, cabinW - 16, 8);
+    // Door frame and two sliding panels.
+    ctx.fillStyle = '#758590'; ctx.fillRect(elevX - cx, elevY - cabinH - cy, 12, cabinH);
+    ctx.fillRect(elevX + cabinW - 12 - cx, elevY - cabinH - cy, 12, cabinH);
+    if (!doorIsOpen && !inElevator) {
+        ctx.fillStyle = '#52616c'; ctx.fillRect(elevX + 18 - cx, elevY - cabinH + 40 - cy, cabinW / 2 - 18, cabinH - 52);
+        ctx.fillRect(elevX + cabinW / 2 - cx, elevY - cabinH + 40 - cy, cabinW / 2 - 18, cabinH - 52);
+        ctx.fillStyle = '#00d4d8'; ctx.fillRect(elevX + cabinW / 2 - 2 - cx, elevY - cabinH + 40 - cy, 4, cabinH - 52);
+    } else {
+        // Open door leaves tucked against the side walls.
+        ctx.fillStyle = '#52616c'; ctx.fillRect(elevX + 18 - cx, elevY - cabinH + 40 - cy, 16, cabinH - 52);
+        ctx.fillRect(elevX + cabinW - 34 - cx, elevY - cabinH + 40 - cy, 16, cabinH - 52);
+    }
+    // Call / floor control panel.
+    const panelX = elevX + cabinW + 25, panelY = elevY - 115;
+    ctx.fillStyle = '#101820'; ctx.fillRect(panelX - cx, panelY - cy, 54, 90);
+    ctx.strokeStyle = gateOpen ? '#00d4d8' : '#65737e'; ctx.lineWidth = 2; ctx.strokeRect(panelX - cx, panelY - cy, 54, 90);
+    ctx.fillStyle = gateOpen ? '#00ff9d' : '#ffb347'; ctx.beginPath(); ctx.arc(panelX + 27 - cx, panelY + 28 - cy, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#aab8c2'; ctx.font = '10px Consolas'; ctx.fillText('ELEVATOR', panelX + 4 - cx, panelY + 58 - cy);
+    ctx.fillText(gateOpen ? 'READY' : 'CALL', panelX + 10 - cx, panelY + 73 - cy);
+    if (!gateOpen && Math.abs(p.x - panelX) < 90 && Math.abs(p.y - panelY) < 100) {
+        ctx.fillStyle = '#fff'; ctx.font = '14px Consolas'; ctx.fillText('[E] CALL ELEVATOR', panelX - cx - 30, panelY - cy - 12);
+        if (keys.action) { gateOpen = true; camShake = 5; keys.action = false; }
+    }
+    if (gateOpen && !inElevator && p.x + p.w > elevX + 35 && p.x < elevX + cabinW - 20 && Math.abs((p.y + p.h) - elevY) < 45) {
+        ctx.fillStyle = '#00d4d8'; ctx.font = '12px Consolas'; ctx.fillText('WALK INSIDE TO TRANSIT', elevX + 35 - cx, elevY - cabinH - 15 - cy);
+    }
     // Exit gate
     let gX = gateX + 1500, gY = baseY - 400, gH = gateOpen ? 0 : 400;
     if (!gateOpen) { ctx.fillStyle = '#0c1018'; ctx.fillRect(gX - cx, gY - cy, 100, gH); ctx.fillStyle = '#ff4d4d'; for (let sy = 0; sy < gH; sy += 40) ctx.fillRect(gX - cx, gY - cy + sy, 100, 4); ctx.strokeStyle = '#00ffea'; ctx.lineWidth = 3; ctx.strokeRect(gX - cx, gY - cy, 100, gH); }
