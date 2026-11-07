@@ -14,6 +14,7 @@ let safeRoomDoorSlammed = false;
 let safeRoomDoorTimer = 0;
 let carryingPlug = false;
 let inElevator = false;
+let elevatorCalled = false;
 let elevatorTimer = 0;
 let elevatorWorldX = 0, elevatorWorldY = 0;
 const ELEVATOR_DURATION = 300;
@@ -713,10 +714,10 @@ class Player {
             return;
         }
         // Enter only after the runner has walked fully through the doorway.
-        if (inSafeRoom && gateOpen && !inElevator &&
+        if (inSafeRoom && elevatorCalled && !inElevator &&
             this.x + this.w > elevatorWorldX + 70 && this.x < elevatorWorldX + 230 &&
             this.y + this.h >= elevatorWorldY - 8 && this.y + this.h <= elevatorWorldY + 20) {
-            inElevator = true; elevatorTimer = 0;
+            inElevator = true; elevatorCalled = false; elevatorTimer = 0;
             this.hiding = false; inVentSystem = false;
         }
     }
@@ -991,10 +992,10 @@ function drawSafeRoom(cx, cy) {
     // Actual walk-in elevator cabin. The call button opens the door; the player
     // must walk into the cabin to begin sector transit.
     elevatorWorldX = gateX + 1200;
-    elevatorWorldY = baseY - 60;
+    elevatorWorldY = baseY;
     const elevX = elevatorWorldX, elevY = elevatorWorldY;
     const cabinW = 300, cabinH = 300;
-    const doorIsOpen = gateOpen && !inElevator;
+    const doorIsOpen = elevatorCalled && !inElevator;
     ctx.fillStyle = '#070b10'; ctx.fillRect(elevX - cx, elevY - cabinH - cy, cabinW, cabinH);
     ctx.fillStyle = '#1b2731'; ctx.fillRect(elevX + 10 - cx, elevY - cabinH + 10 - cy, cabinW - 20, cabinH - 10);
     ctx.fillStyle = '#35434e'; ctx.fillRect(elevX + 18 - cx, elevY - cabinH + 18 - cy, cabinW - 36, 8);
@@ -1017,15 +1018,15 @@ function drawSafeRoom(cx, cy) {
     // Call / floor control panel.
     const panelX = elevX + cabinW + 25, panelY = elevY - 115;
     ctx.fillStyle = '#101820'; ctx.fillRect(panelX - cx, panelY - cy, 54, 90);
-    ctx.strokeStyle = gateOpen ? '#00d4d8' : '#65737e'; ctx.lineWidth = 2; ctx.strokeRect(panelX - cx, panelY - cy, 54, 90);
-    ctx.fillStyle = gateOpen ? '#00ff9d' : '#ffb347'; ctx.beginPath(); ctx.arc(panelX + 27 - cx, panelY + 28 - cy, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = elevatorCalled ? '#00d4d8' : '#65737e'; ctx.lineWidth = 2; ctx.strokeRect(panelX - cx, panelY - cy, 54, 90);
+    ctx.fillStyle = elevatorCalled ? '#00ff9d' : '#ffb347'; ctx.beginPath(); ctx.arc(panelX + 27 - cx, panelY + 28 - cy, 9, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#aab8c2'; ctx.font = '10px Consolas'; ctx.fillText('ELEVATOR', panelX + 4 - cx, panelY + 58 - cy);
-    ctx.fillText(gateOpen ? 'READY' : 'CALL', panelX + 10 - cx, panelY + 73 - cy);
-    if (!gateOpen && Math.abs(p.x - panelX) < 90 && Math.abs(p.y - panelY) < 100) {
+    ctx.fillText(elevatorCalled ? 'READY' : 'CALL', panelX + 10 - cx, panelY + 73 - cy);
+    if (!elevatorCalled && !inElevator && Math.abs(p.x - panelX) < 90 && Math.abs(p.y - panelY) < 100) {
         ctx.fillStyle = '#fff'; ctx.font = '14px Consolas'; ctx.fillText('[E] CALL ELEVATOR', panelX - cx - 30, panelY - cy - 12);
-        if (keys.action) { gateOpen = true; camShake = 5; keys.action = false; }
+        if (keys.action) { elevatorCalled = true; camShake = 5; keys.action = false; }
     }
-    if (gateOpen && !inElevator && p.x + p.w > elevX + 35 && p.x < elevX + cabinW - 20 && Math.abs((p.y + p.h) - elevY) < 45) {
+    if (elevatorCalled && !inElevator && p.x + p.w > elevX + 35 && p.x < elevX + cabinW - 20 && Math.abs((p.y + p.h) - elevY) < 45) {
         ctx.fillStyle = '#00d4d8'; ctx.font = '12px Consolas'; ctx.fillText('WALK INSIDE TO TRANSIT', elevX + 35 - cx, elevY - cabinH - 15 - cy);
     }
     // Exit gate
@@ -1131,7 +1132,7 @@ function generateFloor() {
     tracer.active=false; if(activeMods.has('tracer'))tracer.spawn(); if(activeMods.has('dodge'))dodgeCharges=dodgeMax;
     generateBgLayers();
 }
-function calculateRewards() { totalExp += (150 + [...activeMods].reduce((a, id) => a + allMods.find(m => m.id === id).exp, 0)); gateOpen = false; }
+function calculateRewards() { totalExp += (150 + [...activeMods].reduce((a, id) => a + allMods.find(m => m.id === id).exp, 0)); gateOpen = false; elevatorCalled = false; }
 function rerollMods() { openShop(); }
 function openShop() { document.getElementById('dialogue-box').style.display = 'none'; document.getElementById('shop-menu').style.display = 'block'; renderMods(); }
 
@@ -1195,7 +1196,7 @@ function nextFloor() {
     if (activeMods.has('dodge')) dodgeCharges = dodgeMax;
     isDodging = false; dodgeTimer = 0; dodgeCooldown = 0;
     safeRoomDoorSlammed = false; safeRoomDoorTimer = 0; carryingPlug = false;
-    inElevator = false; elevatorTimer = 0;
+    inElevator = false; elevatorCalled = false; elevatorTimer = 0;
     inVentSystem = false; ventTimer = 0; crawl.reset();
     shopChatState = 0; currentDialogue = Math.floor(Math.random() * shopDialogue.length);
     document.getElementById('floor-tag').innerText = "//SECTOR_" + floorNum;
