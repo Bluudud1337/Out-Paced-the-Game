@@ -678,173 +678,159 @@ function drawSafeRoom(cx, cy) {
 
 // --- ROOM GENERATION ---
 function generateFloor() {
+    // ROOM GENERATOR V2: each sector is assembled from a room blueprint.
+    // The floor elevation is carried forward, so stairwells genuinely descend.
     platforms = []; hazards = []; lockers = []; decals = []; lasers = []; rooms = []; puzzles = [];
     ceilings = []; vents = []; vinePatches = [];
     vineCaught = false; vineCaughtPatch = null; vineEscapeCount = 0; vineTrapTime = 0;
+
     let curX = 0;
     let floorY = canvas.height - 150;
+    const roomBlueprints = [
+        { type: 'hallway', label: 'SERVICE_HALL', weight: 18 },
+        { type: 'storage', label: 'STORAGE', weight: 16 },
+        { type: 'lab', label: 'RESEARCH_LAB', weight: 15 },
+        { type: 'hazard', label: 'CONTAINMENT', weight: 12 },
+        { type: 'stairs', label: 'LOWER_LEVEL', weight: 14 },
+        { type: 'catwalk', label: 'CATWALK', weight: 10 },
+        { type: 'hideout', label: 'MAINTENANCE', weight: 10 },
+        { type: 'chamber', label: 'CONTROL_ROOM', weight: 5 }
+    ];
+    const chooseBlueprint = () => {
+        let roll = Math.random() * roomBlueprints.reduce((sum, r) => sum + r.weight, 0);
+        for (const blueprint of roomBlueprints) {
+            roll -= blueprint.weight;
+            if (roll <= 0) return blueprint;
+        }
+        return roomBlueprints[0];
+    };
 
-    // Start room
+    // Entry room
     platforms.push({ x: -500, y: floorY, w: 1500, h: 600 });
     ceilings.push({ x: -500, y: 20, w: 1500, h: 20 });
-    rooms.push({ x: -500, y: 0, w: 1500, h: canvas.height, type: 'start', label: 'SECTOR_' + floorNum + '::ENTRY', hasDoorLeft: false, hasDoorRight: true });
+    rooms.push({ x: -500, y: 0, w: 1500, h: canvas.height, floorY, type: 'start', label: 'SECTOR_' + floorNum + '::ENTRY', hasDoorLeft: false, hasDoorRight: true });
     curX = 1000;
 
-    let roomCount = 0;
-    let ventIdCounter = 0;
-
+    let roomCount = 0, ventIdCounter = 0;
     while (curX < gateX - 2000) {
-        let type = Math.random(), roomW, roomH = canvas.height;
         roomCount++;
-        let roomFloorY = floorY + (Math.random() - 0.5) * 20;
+        const blueprint = chooseBlueprint();
+        const type = blueprint.type;
+        const roomW = type === 'stairs' ? 1050 + Math.random() * 250 : 760 + Math.random() * 440;
+        const entryFloorY = floorY;
+        let exitFloorY = entryFloorY;
+        const roomTopY = Math.max(20, entryFloorY - 570);
+        const room = {
+            x: curX, y: roomTopY, w: roomW, h: entryFloorY - roomTopY + 150,
+            type, label: blueprint.label + '_' + roomCount,
+            floorY: entryFloorY, hasDoorLeft: true, hasDoorRight: true,
+            roomNumber: roomCount
+        };
 
-        if (type < 0.15) {
-            roomW = 900 + Math.random() * 300;
-            let gapX = curX + 350 + Math.random() * 200;
-            platforms.push({ x: curX, y: roomFloorY, w: gapX - curX, h: 600 });
-            platforms.push({ x: gapX + 180, y: roomFloorY, w: curX + roomW - gapX - 180, h: 600 });
-            hazards.push({ x: gapX, y: roomFloorY + 50, w: 180, h: 500, type: 'lava' });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'corridor', floorY: roomFloorY, label: 'CORRIDOR_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
-        } else if (type < 0.3) {
-            roomW = 600 + Math.random() * 200;
-            platforms.push({ x: curX, y: roomFloorY, w: 120, h: 600 });
-            platforms.push({ x: curX + 80, y: roomFloorY - 150, w: 100, h: 20 });
-            platforms.push({ x: curX + roomW - 180, y: roomFloorY - 300, w: 100, h: 20 });
-            platforms.push({ x: curX + roomW - 120, y: roomFloorY - 400, w: 120, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'climb', floorY: roomFloorY, label: 'ASCENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
-        } else if (type < 0.45) {
-            roomW = 800 + Math.random() * 300;
-            platforms.push({ x: curX, y: roomFloorY, w: 120, h: 600 });
-            hazards.push({ x: curX + 120, y: roomFloorY + 80, w: roomW - 240, h: 500, type: 'lava' });
-            platforms.push({ x: curX + roomW - 120, y: roomFloorY, w: 120, h: 600 });
-            let stepCount = Math.floor((roomW - 240) / 200);
-            for (let i = 0; i < stepCount; i++) platforms.push({ x: curX + 120 + i * 200, y: roomFloorY - 80 - Math.random() * 60, w: 120, h: 20 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'hazard', floorY: roomFloorY, label: 'CONTAINMENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
-        } else if (type < 0.55) {
-            // Descending stairwell with a lower landing that feeds into the next room.
-            roomW = 900 + Math.random() * 300;
-            let steps = 6 + Math.floor(Math.random() * 3);
-            let stepW = (roomW - 180) / steps;
-            let descent = 220 + Math.random() * 100;
-            let stepH = descent / steps;
-            const stairStartY = roomFloorY;
-            platforms.push({ x: curX, y: stairStartY, w: 90, h: 600 });
-            for (let st = 0; st < steps; st++) {
-                platforms.push({ x: curX + 90 + st * stepW, y: stairStartY + (st + 1) * stepH, w: stepW + 2, h: 20 });
+        // Main floor plan. Stairwells use individual descending treads.
+        if (type === 'stairs') {
+            const steps = 7 + Math.floor(Math.random() * 3);
+            const stepW = (roomW - 180) / steps;
+            const descent = 200 + Math.random() * 150;
+            room.stairSteps = steps;
+            room.stairsEndY = entryFloorY + descent;
+            platforms.push({ x: curX, y: entryFloorY, w: 90, h: 600 });
+            for (let i = 0; i < steps; i++) {
+                const stepY = entryFloorY + ((i + 1) / steps) * descent;
+                platforms.push({ x: curX + 90 + i * stepW, y: stepY, w: stepW + 2, h: 600 });
             }
-            roomFloorY = stairStartY + descent;
-            platforms.push({ x: curX + roomW - 90, y: roomFloorY, w: 90, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, floorY: stairStartY, stairsEndY: roomFloorY, type: 'stairs', label: 'STAIRWELL_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
-        } else if (type < 0.7) {
-            roomW = 900 + Math.random() * 400;
-            let startH = roomFloorY, endH = roomFloorY + 180;
-            platforms.push({ x: curX, y: startH, w: 120, h: 600 });
-            platforms.push({ x: curX + 120, y1: startH, y2: endH, w: roomW - 240, h: 600, isSlope: true });
-            platforms.push({ x: curX + roomW - 120, y: endH, w: 120, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'slope', floorY: roomFloorY, label: 'GRADIENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
-            roomFloorY = endH;
-        } else if (type < 0.85) {
-            roomW = 700 + Math.random() * 200;
-            platforms.push({ x: curX, y: roomFloorY, w: 80, h: 600 });
-            platforms.push({ x: curX + 80, y: roomFloorY, w: roomW - 160, h: 20 });
-            platforms.push({ x: curX + roomW - 80, y: roomFloorY, w: 80, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'bridge', floorY: roomFloorY, label: 'CATWALK_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            exitFloorY = room.stairsEndY;
+            platforms.push({ x: curX + roomW - 90, y: exitFloorY, w: 90, h: 600 });
         } else {
-            roomW = 900 + Math.random() * 300;
-            platforms.push({ x: curX, y: roomFloorY, w: roomW, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'lab', floorY: roomFloorY, label: 'LAB_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            platforms.push({ x: curX, y: entryFloorY, w: roomW, h: 600 });
         }
 
-        // Give each room its own vertical bounds. When stairs descend, the
-        // ceiling and walls descend with the floor instead of staying at y=0.
-        const roomTopY = Math.max(20, roomFloorY - (canvas.height - 150));
-        const generatedRoom = rooms[rooms.length - 1];
-        generatedRoom.y = roomTopY;
-        generatedRoom.h = roomFloorY - roomTopY + 150;
-        ceilings.push({ x: curX, y: roomTopY, w: roomW, h: 20 });
-
-        // Lockers ON platforms
-        let roomFloorPlats = platforms.filter(pl => pl.x >= curX && pl.x < curX + roomW && !pl.isSlope && pl.h >= 20 && pl.w >= 100);
-        if (roomFloorPlats.length > 0 && Math.random() > 0.4) {
-            let targetPlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
-            let lockerX = targetPlat.x + 50 + Math.random() * Math.max(targetPlat.w - 150, 10);
-            lockers.push({ x: lockerX, y: targetPlat.y - 100, w: 60, h: 100, openAnim: 0 });
-        }
-
-        // Vines - only if OVERGROWTH mod is active
-        if (activeMods.has('vine') && Math.random() > 0.4 && roomFloorPlats.length > 0) {
-            let vinePlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
-            let vineW = 60 + Math.random() * 80;
-            let vineX = vinePlat.x + 40 + Math.random() * Math.max(vinePlat.w - vineW - 80, 10);
-            vinePatches.push(new VinePatch(vineX, vinePlat.y, vineW));
-            if (Math.random() > 0.5 && vinePlat.w > 300) {
-                let vineW2 = 50 + Math.random() * 70;
-                let vineX2 = vinePlat.x + vinePlat.w - vineW2 - 40 - Math.random() * 80;
-                if (vineX2 - (vineX + vineW) > 100) vinePatches.push(new VinePatch(vineX2, vinePlat.y, vineW2));
+        // Some room types contain extra traversal or hazard geometry.
+        if (type === 'catwalk') {
+            const ledgeY = entryFloorY - 130 - Math.random() * 100;
+            platforms.push({ x: curX + 160, y: ledgeY, w: roomW - 320, h: 20 });
+            room.featureY = ledgeY;
+        } else if (type === 'hazard') {
+            const hazardX = curX + 180, hazardW = roomW - 360;
+            hazards.push({ x: hazardX, y: entryFloorY + 70, w: hazardW, h: 500, type: 'lava' });
+            const treadCount = 3 + Math.floor(Math.random() * 3);
+            for (let i = 0; i < treadCount; i++) {
+                platforms.push({ x: hazardX + 30 + i * (hazardW / treadCount), y: entryFloorY - 80 - Math.random() * 70, w: Math.max(80, hazardW / treadCount - 40), h: 20 });
             }
+        } else if (type === 'lab' || type === 'chamber') {
+            // Small raised work platforms and equipment shelves.
+            for (let i = 0; i < 2; i++) {
+                platforms.push({ x: curX + 180 + i * (roomW - 420), y: entryFloorY - 100 - i * 70, w: 150, h: 20 });
+            }
+        } else if (type === 'storage') {
+            // Storage aisles create a recognizable warehouse layout.
+            for (let i = 0; i < 3; i++) {
+                const shelfX = curX + 170 + i * Math.max(180, (roomW - 300) / 3);
+                platforms.push({ x: shelfX, y: entryFloorY - 115, w: 130, h: 18 });
+                platforms.push({ x: shelfX + 20, y: entryFloorY - 230, w: 90, h: 18 });
+            }
+        } else if (type === 'hideout') {
+            // Maintenance alcoves and a low platform make this room feel sheltered.
+            platforms.push({ x: curX + 220, y: entryFloorY - 75, w: roomW - 440, h: 20 });
+            room.alcoveY = entryFloorY - 75;
         }
 
-        // Physical room walls: solid upper wall sections leave a real doorway
-        // opening from the floor up to the door lintel. These are collision
-        // platforms, not just decorative door frames.
-        const wallThickness = 24;
-        const doorwayHeight = 190;
-        const doorwayTop = Math.max(40, roomFloorY - doorwayHeight);
+        // Every room has a real doorway opening between solid upper wall sections.
+        const wallThickness = 24, doorwayHeight = 190;
+        const doorwayTop = Math.max(roomTopY + 22, entryFloorY - doorwayHeight);
         platforms.push(
             { x: curX, y: roomTopY, w: wallThickness, h: Math.max(0, doorwayTop - roomTopY) },
             { x: curX + roomW - wallThickness, y: roomTopY, w: wallThickness, h: Math.max(0, doorwayTop - roomTopY) }
         );
+        ceilings.push({ x: curX, y: roomTopY, w: roomW, h: 20 });
+        rooms.push(room);
 
-        // Vents - only if DUCTWORK mod is active
-        if (activeMods.has('vents') && Math.random() > 0.45 && roomFloorPlats.length > 0) {
-            let ventPlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
-            let ventX = ventPlat.x + 30 + Math.random() * Math.max(ventPlat.w - 110, 10);
-            let ventY = ventPlat.y - 60;
-            let newVent = { x: ventX, y: ventY, w: 80, h: 60, connectedTo: -1, id: ventIdCounter };
+        // Hiding spots: storage and maintenance rooms always have one;
+        // other rooms can spawn lockers too. Existing hide mechanics stay intact.
+        const lockerCount = (type === 'storage' || type === 'hideout') ? 2 : (Math.random() > 0.45 ? 1 : 0);
+        for (let i = 0; i < lockerCount; i++) {
+            let lockerX = curX + 100 + Math.random() * Math.max(roomW - 220, 20);
+            lockers.push({ x: lockerX, y: entryFloorY - 100, w: 60, h: 100, openAnim: 0 });
+        }
+
+        // Keep the optional mod systems compatible with the new room layout.
+        const roomFloorPlats = platforms.filter(pl => pl.x >= curX && pl.x < curX + roomW && !pl.isSlope && pl.w >= 80 && pl.y >= entryFloorY - 300 && pl.y <= exitFloorY + 10);
+        if (activeMods.has('vine') && Math.random() > 0.4 && roomFloorPlats.length) {
+            const vinePlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
+            const vineW = 60 + Math.random() * 80;
+            const vineX = vinePlat.x + 30 + Math.random() * Math.max(vinePlat.w - vineW - 60, 10);
+            vinePatches.push(new VinePatch(vineX, vinePlat.y, vineW));
+        }
+        if (activeMods.has('vents') && Math.random() > 0.45 && roomFloorPlats.length) {
+            const ventPlat = roomFloorPlats[Math.floor(Math.random() * roomFloorPlats.length)];
+            const ventX = ventPlat.x + 30 + Math.random() * Math.max(ventPlat.w - 110, 10);
+            const newVent = { x: ventX, y: ventPlat.y - 60, w: 80, h: 60, connectedTo: -1, id: ventIdCounter };
             let nearestIdx = -1, nearestDist = Infinity;
-            vents.forEach((v, vi) => {
-                let dist = Math.hypot(v.x - ventX, v.y - ventY);
-                if (dist < nearestDist && dist < 3000) { nearestDist = dist; nearestIdx = vi; }
-            });
-            if (nearestIdx >= 0) {
-                newVent.connectedTo = nearestIdx;
-                vents[nearestIdx].connectedTo = ventIdCounter;
-            }
-            vents.push(newVent);
-            ventIdCounter++;
+            vents.forEach((v, vi) => { const dist = Math.hypot(v.x - ventX, v.y - newVent.y); if (dist < nearestDist && dist < 3000) { nearestDist = dist; nearestIdx = vi; } });
+            if (nearestIdx >= 0) { newVent.connectedTo = nearestIdx; vents[nearestIdx].connectedTo = ventIdCounter; }
+            vents.push(newVent); ventIdCounter++;
+        }
+        if (activeMods.has('puzzles') && Math.random() > 0.55 && roomFloorPlats.length) {
+            const safePlat = roomFloorPlats[0], safeY = safePlat.y - 20;
+            const safeX = safePlat.x + 60, doorX = curX + roomW - 120, doorY = entryFloorY - 400;
+            if (Math.random() < 0.5) puzzles.push(new Puzzle({ type: 'switch', x: curX, y: entryFloorY, switchX: safeX + Math.random() * Math.max(safePlat.w - 100, 20), switchY: safeY, doorX, doorY, doorW: 100, doorH: 400 }));
+            else puzzles.push(new Puzzle({ type: 'cord', x: curX, y: entryFloorY, plugX: safeX, plugY: safeY, socketX: doorX - 40, socketY: safeY, doorX, doorY, doorW: 100, doorH: 400 }));
+        }
+        if (Math.random() > 0.65) decals.push({ x: curX + Math.random() * roomW, y: roomTopY + 60 + Math.random() * 180, w: 40 + Math.random() * 60, h: 20 + Math.random() * 30, c: 'rgba(0,242,255,0.08)', type: 'circuit' });
+        if (activeMods.has('puzzles') && Math.random() > 0.75) {
+            lasers.push({ x: curX + roomW * 0.55, y: entryFloorY - 300, w: 20, h: 300, sx: curX + roomW * 0.5, sy: entryFloorY - 20, active: true });
         }
 
-        // Decals (sparse)
-        if (Math.random() > 0.6) decals.push({ x: curX + Math.random() * roomW, y: Math.random() * canvas.height * 0.3, w: 40 + Math.random() * 60, h: 40 + Math.random() * 60, c: `rgba(0,242,255,0.${Math.floor(Math.random() * 2 + 1)})`, type: 'circuit' });
-
-        // Lasers
-        if (activeMods.has('puzzles') && Math.random() > 0.7 && roomFloorPlats.length > 0) {
-            let lPlat = roomFloorPlats[0];
-            lasers.push({ x: lPlat.x + 100, y: lPlat.y - 300, w: 20, h: 300, sx: lPlat.x + 50, sy: lPlat.y - 20, active: true });
-        }
-
-        // Puzzles with accessible switches
-        if (activeMods.has('puzzles') && Math.random() > 0.5 && roomFloorPlats.length > 0) {
-            let puzzleType = Math.random(), doorX = curX + roomW - 120, doorY = roomFloorY - 400;
-            let safePlat = roomFloorPlats[0];
-            let safeY = safePlat.y - 20;
-            let safeXBase = safePlat.x + 60;
-            let safeXRange = Math.max(safePlat.w - 200, 50);
-            if (puzzleType < 0.35) puzzles.push(new Puzzle({ type: 'switch', x: curX, y: roomFloorY, switchX: safeXBase + Math.random() * safeXRange, switchY: safeY, doorX, doorY, doorW: 100, doorH: 400 }));
-            else if (puzzleType < 0.65) puzzles.push(new Puzzle({ type: 'cord', x: curX, y: roomFloorY, plugX: safeXBase, plugY: safeY, socketX: doorX - 40, socketY: safeY, doorX, doorY, doorW: 100, doorH: 400 }));
-            else { let switchCount = 2 + Math.floor(Math.random() * 2), switches = []; for (let s = 0; s < switchCount; s++) switches.push({ x: safeXBase + s * Math.min(200, safeXRange / switchCount), y: safeY, on: false }); puzzles.push(new Puzzle({ type: 'multi_switch', x: curX, y: roomFloorY, switches, doorX, doorY, doorW: 100, doorH: 400 })); }
-        }
-
-        floorY = roomFloorY;
+        floorY = exitFloorY;
         curX += roomW;
     }
 
-    // Safe room
+    // Safe room remains the end-of-sector destination.
     platforms.push({ x: gateX - 600, y: floorY, w: 600, h: 600 });
     platforms.push({ x: gateX, y: floorY, w: 4000, h: 600 });
     platforms.push({ x: gateX + 100, y: floorY - 350, w: 1400, h: 20 });
-    ceilings.push({ x: gateX - 600, y: 20, w: 4600, h: 20 });
-    rooms.push({ x: gateX - 600, y: 0, w: 4600, h: canvas.height, type: 'safe', label: 'SECTOR_' + floorNum + '::SAFE', hasDoorLeft: true, hasDoorRight: false });
+    ceilings.push({ x: gateX - 600, y: Math.max(20, floorY - 570), w: 4600, h: 20 });
+    rooms.push({ x: gateX - 600, y: Math.max(20, floorY - 570), w: 4600, h: floorY - Math.max(20, floorY - 570) + 150, floorY, type: 'safe', label: 'SECTOR_' + floorNum + '::SAFE', hasDoorLeft: true, hasDoorRight: false });
 
     tracer.active = false; if (activeMods.has('tracer')) tracer.spawn(); if (activeMods.has('dodge')) dodgeCharges = dodgeMax;
     generateBgLayers();
