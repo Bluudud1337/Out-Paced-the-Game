@@ -1021,23 +1021,34 @@ function drawSafeRoom(cx, cy) {
     const elevX = elevatorWorldX, elevY = elevatorWorldY;
     const cabinW = 300, cabinH = 300;
 
-    // Physical elevator shaft: solid side walls, cabin floor, and a real
-    // floor opening. These collision shapes are separate from the artwork.
+    // 2D collision: the shaft has solid side walls, but the cabin's
+    // entrance is a gap in the LEFT wall at floor level. The player walks
+    // sideways through that gap; no depth/3D doorway is simulated.
     const shaftTop = baseY - 900;
     const shaftBottom = baseY + 2400;
+    const entranceTop = elevY - 82;
     if (!elevatorShaftLeftWall) elevatorShaftLeftWall = { x: elevX - 18, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
     if (!elevatorShaftRightWall) elevatorShaftRightWall = { x: elevX + cabinW, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
-    Object.assign(elevatorShaftLeftWall, { x: elevX - 18, y: shaftTop, h: shaftBottom - shaftTop });
     Object.assign(elevatorShaftRightWall, { x: elevX + cabinW, y: shaftTop, h: shaftBottom - shaftTop });
-    if (!platforms.includes(elevatorShaftLeftWall)) platforms.push(elevatorShaftLeftWall);
     if (!platforms.includes(elevatorShaftRightWall)) platforms.push(elevatorShaftRightWall);
 
-    // Closed elevator doors are solid. Calling the elevator opens the doorway.
-    if (!elevatorDoorCollision) elevatorDoorCollision = { x: elevX + 12, y: elevY - cabinH + 38, w: cabinW - 24, h: cabinH - 38, elevatorDoor: true };
-    Object.assign(elevatorDoorCollision, { x: elevX + 12, y: elevY - cabinH + 38, w: cabinW - 24, h: cabinH - 38 });
-    if (!elevatorCalled && !inElevator) {
-        if (!platforms.includes(elevatorDoorCollision)) platforms.push(elevatorDoorCollision);
+    // Left shaft wall is split around the walk-in entrance when called.
+    const leftWallParts = elevatorShaftLeftWall ? [elevatorShaftLeftWall] : [];
+    if (!elevatorShaftLeftWall) elevatorShaftLeftWall = { x: elevX - 18, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
+    const oldLeftIndex = platforms.indexOf(elevatorShaftLeftWall);
+    if (oldLeftIndex >= 0) platforms.splice(oldLeftIndex, 1);
+    if (elevatorCalled && !inElevator) {
+        platforms.push(
+            { x: elevX - 18, y: shaftTop, w: 18, h: entranceTop - shaftTop, elevatorShaft: true },
+            { x: elevX - 18, y: elevY, w: 18, h: shaftBottom - elevY, elevatorShaft: true }
+        );
     } else {
+        platforms.push(elevatorShaftLeftWall);
+    }
+
+    // The cabin front is open in this 2D side view. Do NOT add a giant
+    // rectangular door collider across the cabin; it would seal the entrance.
+    if (elevatorDoorCollision) {
         const doorIndex = platforms.indexOf(elevatorDoorCollision);
         if (doorIndex >= 0) platforms.splice(doorIndex, 1);
     }
