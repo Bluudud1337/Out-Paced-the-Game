@@ -18,6 +18,7 @@ let elevatorCalled = false;
 let elevatorTimer = 0;
 let elevatorWorldX = 0, elevatorWorldY = 0, elevatorTravelOffset = 0;
 let elevatorPlatform = null;
+let elevatorShaftLeftWall = null, elevatorShaftRightWall = null, elevatorDoorCollision = null;
 const ELEVATOR_DURATION = 300;
 const ELEVATOR_SPEED = 3;
 let platforms = [], hazards = [], lockers = [], decals = [], lasers = [];
@@ -1024,14 +1025,21 @@ function drawSafeRoom(cx, cy) {
     // floor opening. These collision shapes are separate from the artwork.
     const shaftTop = baseY - 900;
     const shaftBottom = baseY + 2400;
-    const shaftLeftWall = { x: elevX - 18, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
-    const shaftRightWall = { x: elevX + cabinW, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
-    platforms.push(shaftLeftWall, shaftRightWall);
+    if (!elevatorShaftLeftWall) elevatorShaftLeftWall = { x: elevX - 18, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
+    if (!elevatorShaftRightWall) elevatorShaftRightWall = { x: elevX + cabinW, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
+    Object.assign(elevatorShaftLeftWall, { x: elevX - 18, y: shaftTop, h: shaftBottom - shaftTop });
+    Object.assign(elevatorShaftRightWall, { x: elevX + cabinW, y: shaftTop, h: shaftBottom - shaftTop });
+    if (!platforms.includes(elevatorShaftLeftWall)) platforms.push(elevatorShaftLeftWall);
+    if (!platforms.includes(elevatorShaftRightWall)) platforms.push(elevatorShaftRightWall);
 
-    // Closed elevator doors are solid. Calling the elevator removes this
-    // collision so the player can walk through the doorway into the cabin.
+    // Closed elevator doors are solid. Calling the elevator opens the doorway.
+    if (!elevatorDoorCollision) elevatorDoorCollision = { x: elevX + 12, y: elevY - cabinH + 38, w: cabinW - 24, h: cabinH - 38, elevatorDoor: true };
+    Object.assign(elevatorDoorCollision, { x: elevX + 12, y: elevY - cabinH + 38, w: cabinW - 24, h: cabinH - 38 });
     if (!elevatorCalled && !inElevator) {
-        platforms.push({ x: elevX + 12, y: elevY - cabinH + 38, w: cabinW - 24, h: cabinH - 38, elevatorDoor: true });
+        if (!platforms.includes(elevatorDoorCollision)) platforms.push(elevatorDoorCollision);
+    } else {
+        const doorIndex = platforms.indexOf(elevatorDoorCollision);
+        if (doorIndex >= 0) platforms.splice(doorIndex, 1);
     }
     // Visible elevator shaft: the floor is genuinely missing below the cabin.
     ctx.fillStyle = '#020407';
