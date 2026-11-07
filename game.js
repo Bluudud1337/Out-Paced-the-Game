@@ -400,7 +400,8 @@ class Bull {
         for(let i=vents.length-1;i>=0;i--) if(vents[i].x+vents[i].w>this.x-80&&vents[i].x<this.x+this.width()) vents.splice(i,1);
         for(let i=decals.length-1;i>=0;i--) if(decals[i].x+decals[i].w>this.x-80&&decals[i].x<this.x+this.width()) decals.splice(i,1);
 
-        // Only kill when Bull's head reaches the player, not when the long body first appears.\n        if(!isDodging && Math.abs(this.x+180-(p.x+p.w/2))<Math.max(100,p.w*0.8) && !this.isPlayerSheltered()) {
+        // Only kill when Bull's head reaches the player, not when the long body first appears.
+        if(!isDodging && Math.abs(this.x+180-(p.x+p.w/2))<Math.max(100,p.w*0.8) && !this.isPlayerSheltered()) {
             if(activeMods.has('dodge')&&tryDodge()) {} else die('BULL_OVERRUN');
         }
         if(this.x>p.x+canvas.width+1200) this.active=false;
