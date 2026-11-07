@@ -727,10 +727,11 @@ class Player {
         // overlaps the open doorway. Use the full doorway width, not a narrow
         // center strip that was impossible to reach reliably.
         if (inSafeRoom && elevatorCalled && !inElevator &&
-            this.x + this.w > elevatorWorldX + 12 &&
-            this.x < elevatorWorldX + 288 &&
-            Math.abs((this.y + this.h) - elevatorWorldY) <= 24 &&
-            this.vy === 0) {
+            this.x + this.w > elevatorWorldX + 18 &&
+            this.x < elevatorWorldX + 282 &&
+            this.y + this.h >= elevatorWorldY - 18 &&
+            this.y + this.h <= elevatorWorldY + 24 &&
+            this.grounded) {
             inElevator = true;
             elevatorCalled = false;
             elevatorTimer = 0;
@@ -1018,6 +1019,20 @@ function drawSafeRoom(cx, cy) {
     if (!platforms.includes(elevatorPlatform)) platforms.push(elevatorPlatform);
     const elevX = elevatorWorldX, elevY = elevatorWorldY;
     const cabinW = 300, cabinH = 300;
+
+    // Physical elevator shaft: solid side walls, cabin floor, and a real
+    // floor opening. These collision shapes are separate from the artwork.
+    const shaftTop = baseY - 900;
+    const shaftBottom = baseY + 2400;
+    const shaftLeftWall = { x: elevX - 18, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
+    const shaftRightWall = { x: elevX + cabinW, y: shaftTop, w: 18, h: shaftBottom - shaftTop, elevatorShaft: true };
+    platforms.push(shaftLeftWall, shaftRightWall);
+
+    // Closed elevator doors are solid. Calling the elevator removes this
+    // collision so the player can walk through the doorway into the cabin.
+    if (!elevatorCalled && !inElevator) {
+        platforms.push({ x: elevX + 12, y: elevY - cabinH + 38, w: cabinW - 24, h: cabinH - 38, elevatorDoor: true });
+    }
     // Visible elevator shaft: the floor is genuinely missing below the cabin.
     ctx.fillStyle = '#020407';
     ctx.fillRect(elevX - cx, elevY - cy, cabinW, canvas.height + 180);
