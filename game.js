@@ -530,7 +530,7 @@ function drawLabDecal(d, cx, cy) { ctx.fillStyle = d.c; ctx.fillRect(d.x - camX 
 function drawLabRoom(room, cx, cy) {
     // Simple side-view rooms with clean Roblox-style doors.
     const sx = room.x - cx, sy = room.y - cy;
-    const wall = 18, floorY = room.y + room.h - 150;
+    const wall = 18, floorY = room.floorY ?? (room.y + room.h - 150);
     const accent = room.type === 'hazard' ? '#b84b4b' : '#7b8794';
 
     // Room shell. The side walls stop above the doorway, matching the
@@ -542,8 +542,25 @@ function drawLabRoom(room, cx, cy) {
     const wallBottom = floorY - doorwayHeight;
     ctx.fillRect(sx, sy + 22, wall, Math.max(0, wallBottom - (room.y + 22)) );
     ctx.fillRect(sx + room.w - wall, sy + 22, wall, Math.max(0, wallBottom - (room.y + 22)) );
-    ctx.fillStyle = '#303943'; ctx.fillRect(sx, floorY - cy, room.w, 150);
-    ctx.fillStyle = '#68727d'; ctx.fillRect(sx, floorY - cy, room.w, 5);
+    ctx.fillStyle = '#303943';
+    if (room.type === 'stairs' && room.stairsEndY) {
+        const steps = 6 + Math.floor((room.w - 900) / 150);
+        const stepW = (room.w - 180) / steps;
+        const descent = room.stairsEndY - floorY;
+        ctx.fillRect(sx, floorY - cy, 90, 150);
+        for (let st = 0; st < steps; st++) {
+            const stepX = sx + 90 + st * stepW;
+            const stepY = floorY + ((st + 1) / steps) * descent - cy;
+            ctx.fillRect(stepX, stepY, stepW + 2, 150);
+            ctx.fillStyle = '#68727d'; ctx.fillRect(stepX, stepY, stepW + 2, 5);
+            ctx.fillStyle = '#303943';
+        }
+        ctx.fillRect(sx + room.w - 90, room.stairsEndY - cy, 90, 150);
+        ctx.fillStyle = '#68727d'; ctx.fillRect(sx + room.w - 90, room.stairsEndY - cy, 90, 5);
+    } else {
+        ctx.fillRect(sx, floorY - cy, room.w, 150);
+        ctx.fillStyle = '#68727d'; ctx.fillRect(sx, floorY - cy, room.w, 5);
+    }
 
     // Sparse wall seams, just enough to show room structure.
     ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1;
@@ -679,7 +696,7 @@ function generateFloor() {
     while (curX < gateX - 2000) {
         let type = Math.random(), roomW, roomH = canvas.height;
         roomCount++;
-        let roomFloorY = floorY + (Math.random() - 0.5) * 40;
+        let roomFloorY = floorY + (Math.random() - 0.5) * 20;
 
         if (type < 0.15) {
             roomW = 900 + Math.random() * 300;
@@ -687,14 +704,14 @@ function generateFloor() {
             platforms.push({ x: curX, y: roomFloorY, w: gapX - curX, h: 600 });
             platforms.push({ x: gapX + 180, y: roomFloorY, w: curX + roomW - gapX - 180, h: 600 });
             hazards.push({ x: gapX, y: roomFloorY + 50, w: 180, h: 500, type: 'lava' });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'corridor', label: 'CORRIDOR_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'corridor', floorY: roomFloorY, label: 'CORRIDOR_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         } else if (type < 0.3) {
             roomW = 600 + Math.random() * 200;
             platforms.push({ x: curX, y: roomFloorY, w: 120, h: 600 });
             platforms.push({ x: curX + 80, y: roomFloorY - 150, w: 100, h: 20 });
             platforms.push({ x: curX + roomW - 180, y: roomFloorY - 300, w: 100, h: 20 });
             platforms.push({ x: curX + roomW - 120, y: roomFloorY - 400, w: 120, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'climb', label: 'ASCENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'climb', floorY: roomFloorY, label: 'ASCENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         } else if (type < 0.45) {
             roomW = 800 + Math.random() * 300;
             platforms.push({ x: curX, y: roomFloorY, w: 120, h: 600 });
@@ -702,35 +719,40 @@ function generateFloor() {
             platforms.push({ x: curX + roomW - 120, y: roomFloorY, w: 120, h: 600 });
             let stepCount = Math.floor((roomW - 240) / 200);
             for (let i = 0; i < stepCount; i++) platforms.push({ x: curX + 120 + i * 200, y: roomFloorY - 80 - Math.random() * 60, w: 120, h: 20 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'hazard', label: 'CONTAINMENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'hazard', floorY: roomFloorY, label: 'CONTAINMENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         } else if (type < 0.55) {
+            // Descending stairwell with a lower landing that feeds into the next room.
             roomW = 900 + Math.random() * 300;
-            let steps = 5 + Math.floor(Math.random() * 3);
-            let stepW = (roomW - 200) / steps;
-            let stepH = 250 / steps;
-            platforms.push({ x: curX, y: roomFloorY, w: 100, h: 600 });
-            for (let s = 0; s < steps; s++) { platforms.push({ x: curX + 100 + s * stepW, y: roomFloorY - (s + 1) * stepH, w: stepW, h: 20 }); }
-            platforms.push({ x: curX + roomW - 100, y: roomFloorY - 250, w: 100, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'stairs', label: 'STAIRWELL_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
-            roomFloorY -= 250;
+            let steps = 6 + Math.floor(Math.random() * 3);
+            let stepW = (roomW - 180) / steps;
+            let descent = 220 + Math.random() * 100;
+            let stepH = descent / steps;
+            const stairStartY = roomFloorY;
+            platforms.push({ x: curX, y: stairStartY, w: 90, h: 600 });
+            for (let st = 0; st < steps; st++) {
+                platforms.push({ x: curX + 90 + st * stepW, y: stairStartY + (st + 1) * stepH, w: stepW + 2, h: 20 });
+            }
+            roomFloorY = stairStartY + descent;
+            platforms.push({ x: curX + roomW - 90, y: roomFloorY, w: 90, h: 600 });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, floorY: stairStartY, stairsEndY: roomFloorY, type: 'stairs', label: 'STAIRWELL_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         } else if (type < 0.7) {
             roomW = 900 + Math.random() * 400;
             let startH = roomFloorY, endH = roomFloorY + 180;
             platforms.push({ x: curX, y: startH, w: 120, h: 600 });
             platforms.push({ x: curX + 120, y1: startH, y2: endH, w: roomW - 240, h: 600, isSlope: true });
             platforms.push({ x: curX + roomW - 120, y: endH, w: 120, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'slope', label: 'GRADIENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'slope', floorY: roomFloorY, label: 'GRADIENT_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
             roomFloorY = endH;
         } else if (type < 0.85) {
             roomW = 700 + Math.random() * 200;
             platforms.push({ x: curX, y: roomFloorY, w: 80, h: 600 });
             platforms.push({ x: curX + 80, y: roomFloorY, w: roomW - 160, h: 20 });
             platforms.push({ x: curX + roomW - 80, y: roomFloorY, w: 80, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'bridge', label: 'CATWALK_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'bridge', floorY: roomFloorY, label: 'CATWALK_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         } else {
             roomW = 900 + Math.random() * 300;
             platforms.push({ x: curX, y: roomFloorY, w: roomW, h: 600 });
-            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'lab', label: 'LAB_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
+            rooms.push({ x: curX, y: 0, w: roomW, h: roomH, type: 'lab', floorY: roomFloorY, label: 'LAB_' + roomCount, hasDoorLeft: true, hasDoorRight: true });
         }
 
         ceilings.push({ x: curX, y: 20, w: roomW, h: 20 });
@@ -807,6 +829,7 @@ function generateFloor() {
             else { let switchCount = 2 + Math.floor(Math.random() * 2), switches = []; for (let s = 0; s < switchCount; s++) switches.push({ x: safeXBase + s * Math.min(200, safeXRange / switchCount), y: safeY, on: false }); puzzles.push(new Puzzle({ type: 'multi_switch', x: curX, y: roomFloorY, switches, doorX, doorY, doorW: 100, doorH: 400 })); }
         }
 
+        floorY = roomFloorY;
         curX += roomW;
     }
 
